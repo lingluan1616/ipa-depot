@@ -1,0 +1,14 @@
+# 构建产物
+build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.xcresult
+
+# ipatool 二进制由 scripts/fetch-ipatool.sh 拉取（约 83 MB，sha256 锁定在 vendor/ipatool/VERSION）
+vendor/ipatool/ipatool
+
+# 系统
+.DS_Store
+*.swp

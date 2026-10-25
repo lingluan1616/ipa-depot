@@ -1,0 +1,103 @@
+name: IPADepot
+options:
+  bundleIdPrefix: app.ipadepot
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  IPADepotCore:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Sources/IPADepotCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.core
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        INSTALL_PATH: "@rpath"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks"
+
+  IPADepotCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/IPADepotCoreTests
+    dependencies:
+      - target: IPADepotCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.core.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  IPADepot:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - target: IPADepotCore
+        embed: true
+    settings:
+      base:
+        PRODUCT_NAME: "IPA Depot"
+        PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.mac
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "IPA Depot"
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 IPA Depot contributors. MIT License."
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        ENABLE_PREVIEWS: YES
+    postCompileScripts:
+      - name: Embed ipatool
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - $(SRCROOT)/vendor/ipatool/ipatool
+          - $(SRCROOT)/vendor/ipatool/LICENSE
+          - $(SRCROOT)/vendor/ipatool/VERSION
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/bin/ipatool
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/ipatool-LICENSE
+        script: |
+          "${SRCROOT}/scripts/embed-ipatool.sh"
+
+schemes:
+  IPADepot:
+    build:
+      targets:
+        IPADepot: all
+        IPADepotCore: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - IPADepotCoreTests
+    archive:
+      config: Release
+  IPADepotCore:
+    build:
+      targets:
+        IPADepotCore: all
+        IPADepotCoreTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - IPADepotCoreTests
