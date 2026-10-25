@@ -72,6 +72,9 @@ targets:
       - path: App/Resources/Fonts
         type: folder
         buildPhase: resources
+      # App 自身的 MIT 许可（关于页「许可」显示全文）
+      - path: LICENSE
+        buildPhase: resources
     dependencies:
       - target: IPADepotCore
         embed: true

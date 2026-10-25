@@ -31,12 +31,42 @@
         }
       }
     },
+    "IPA Depot 许可（MIT）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IPA Depot License (MIT)"
+          }
+        }
+      }
+    },
+    "MIT 许可": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT License"
+          }
+        }
+      }
+    },
     "Mac 登录密码": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Mac login password"
+          }
+        }
+      }
+    },
+    "ipatool": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ipatool"
           }
         }
       }
@@ -107,6 +137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download Latest"
+          }
+        }
+      }
+    },
+    "不在 MIT 范围内": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not covered by MIT"
           }
         }
       }
@@ -422,6 +462,7 @@
       }
     },
     "开源组件": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -721,7 +762,18 @@
         }
       }
     },
+    "未找到许可文件（Contents/Resources/%@）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License file not found (Contents/Resources/%@)."
+          }
+        }
+      }
+    },
     "未找到许可文件（Contents/Resources/ipatool-LICENSE）。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -747,6 +799,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show Raw Error"
+          }
+        }
+      }
+    },
+    "标题与数字字体，不在 MIT 范围内": {
+      "extractionState": "stale",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Font for titles and numbers; not covered by the MIT License"
           }
         }
       }
@@ -937,6 +1000,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Results"
+          }
+        }
+      }
+    },
+    "法律声明…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legal Notice…"
           }
         }
       }
@@ -1171,6 +1244,16 @@
         }
       }
     },
+    "许可": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Licenses"
+          }
+        }
+      }
+    },
     "许可全文…": {
       "localizations": {
         "en": {
@@ -1367,6 +1450,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose “Always Allow” for the keychain"
+          }
+        }
+      }
+    },
+    "阿里妈妈数黑体": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alimama ShuHeiTi"
+          }
+        }
+      }
+    },
+    "阿里妈妈数黑体法律声明": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alimama ShuHeiTi Legal Notice"
           }
         }
       }

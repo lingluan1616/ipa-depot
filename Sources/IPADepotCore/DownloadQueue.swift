@@ -64,6 +64,8 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
 /// - `resume`：`.paused` / `.failed` → 重新排队（ipatool 依靠 `.tmp` 续传）；
 /// - `cancel`：停止并**从队列移除**，同时删除 `<目标>.tmp` 残留；
 /// - `remove`：移除已完成 / 失败 / 暂停的条目（运行中的请用 `cancel`）；
+/// - `restore`：把上次退出时保存的任务以 `.paused` 放回队列（不自动开始）；
+/// - `terminateRunningTasks()`：App 退出时同步终止正在运行的子进程（不等待 actor）；
 /// - `updates()`：订阅快照流，订阅时立即收到当前快照。
 public actor DownloadQueue {
     public typealias TaskFactory = @Sendable (DownloadRequest) -> DownloadTasking
@@ -78,6 +80,8 @@ public actor DownloadQueue {
     private var entries: [Entry] = []
     private var runningID: UUID?
     private var subscribers: [UUID: AsyncStream<[DownloadQueueItem]>.Continuation] = [:]
+    /// 正在运行的任务（加锁，供 App 退出时在主线程同步终止）。
+    private nonisolated let runningTask = RunningTaskBox()
 
     public init(makeTask: @escaping TaskFactory) {
         self.makeTask = makeTask
@@ -118,6 +122,21 @@ public actor DownloadQueue {
         publish()
         pump()
         return id
+    }
+
+    /// 恢复上次保存的任务：状态为 `.paused`，等用户点「继续」再用同参数重跑（ipatool 依靠 `.tmp` 续传）。
+    /// 已存在同 ID 的条目时忽略。
+    public func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?, addedAt: Date = Date()) {
+        guard index(of: id) == nil else { return }
+        let item = DownloadQueueItem(id: id, request: request, status: .paused, progress: progress, addedAt: addedAt)
+        entries.append(Entry(item: item, task: makeTask(request)))
+        publish()
+    }
+
+    /// App 即将退出：终止正在运行的下载子进程（等同暂停，`.tmp` 保留以便下次续传），
+    /// 并且之后不再启动任何排队任务（否则退出途中会拉起下一个下载、留下孤儿进程）。可在任意线程同步调用。
+    public nonisolated func terminateRunningTasks() {
+        runningTask.shutDown()?.pause()
     }
 
     public func pause(_ id: UUID) {
@@ -186,10 +205,12 @@ public actor DownloadQueue {
 
     /// 空闲时启动下一个排队项。
     private func pump() {
-        guard runningID == nil, let index = entries.firstIndex(where: { $0.item.status == .queued }) else { return }
+        guard runningID == nil, !runningTask.isShutDown,
+              let index = entries.firstIndex(where: { $0.item.status == .queued }) else { return }
         let id = entries[index].item.id
         let task = entries[index].task
         runningID = id
+        runningTask.set(task)
         entries[index].item.status = .running
         publish()
 
@@ -236,7 +257,10 @@ public actor DownloadQueue {
     }
 
     private func finish(_ id: UUID, outcome: DownloadOutcome) {
-        if runningID == id { runningID = nil }
+        if runningID == id {
+            runningID = nil
+            runningTask.set(nil)
+        }
         guard let index = index(of: id) else { pump(); return }
         let cancelRequested = entries[index].cancelRequested
         switch outcome {
@@ -267,5 +291,24 @@ public actor DownloadQueue {
         guard request.output.pathExtension.lowercased() == "ipa" else { return }
         let tmp = URL(fileURLWithPath: request.output.path + ".tmp")
         try? FileManager.default.removeItem(at: tmp)
+    }
+}
+
+/// 加锁保存当前运行任务的引用与「正在退出」标志。
+final class RunningTaskBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: DownloadTasking?
+    private var shuttingDown = false
+
+    func set(_ task: DownloadTasking?) { lock.withLock { self.task = task } }
+
+    var isShutDown: Bool { lock.withLock { shuttingDown } }
+
+    /// 置「正在退出」并返回当前运行的任务。
+    func shutDown() -> DownloadTasking? {
+        lock.withLock {
+            shuttingDown = true
+            return task
+        }
     }
 }

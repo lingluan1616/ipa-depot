@@ -37,7 +37,7 @@ public enum VersionComparator {
     }
 }
 
-/// 调 `https://api.github.com/repos/<owner>/<repo>/releases/latest` 检查更新（第一版不接 Sparkle）。
+/// 调 GitHub `repos/{owner}/{repo}/releases/latest` 检查更新（第一版不接 Sparkle）。
 public struct UpdateChecker: Sendable {
     public let owner: String
     public let repo: String

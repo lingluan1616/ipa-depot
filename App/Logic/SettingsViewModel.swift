@@ -2,25 +2,6 @@ import Foundation
 import Observation
 import IPADepotCore
 
-/// 项目信息（owner 在阶段三发布前填写）。
-enum ProjectInfo {
-    /// GitHub 账号名；为 nil 时「检查更新」不可用。
-    static let owner: String? = nil
-    static let repo = "ipa-depot"
-    static let urlTemplate = "https://github.com/<owner>/ipa-depot"
-
-    static var projectURL: URL? {
-        guard let owner else { return nil }
-        return URL(string: "https://github.com/\(owner)/\(repo)")
-    }
-
-    static var displayURL: String {
-        owner.map { "https://github.com/\($0)/\(repo)" } ?? urlTemplate
-    }
-
-    static let ipatoolURL = URL(string: "https://github.com/majd/ipatool")!
-}
-
 @MainActor
 @Observable
 final class SettingsViewModel {
@@ -134,10 +115,30 @@ final class SettingsViewModel {
         }
     }
 
+    /// 关于页「许可」里的三项：App 自身、ipatool、字体。
+    enum License: String, Identifiable, CaseIterable {
+        case app, ipatool, font
+        var id: String { rawValue }
+
+        /// 在 `Contents/Resources` 下的相对路径。
+        var resourcePath: String {
+            switch self {
+            case .app: return "LICENSE"
+            case .ipatool: return "ipatool-LICENSE"
+            case .font: return "Fonts/阿里妈妈数黑体-许可.txt"
+            }
+        }
+    }
+
+    /// 许可全文（随 App 打包在 `Contents/Resources`）。
+    func licenseText(_ license: License, bundle: Bundle = .main) -> String? {
+        guard let base = bundle.resourceURL else { return nil }
+        return try? String(contentsOf: base.appendingPathComponent(license.resourcePath), encoding: .utf8)
+    }
+
     /// `Contents/Resources/ipatool-LICENSE` 全文。
     func ipatoolLicenseText(bundle: Bundle = .main) -> String? {
-        guard let url = bundle.url(forResource: "ipatool-LICENSE", withExtension: nil) else { return nil }
-        return try? String(contentsOf: url, encoding: .utf8)
+        licenseText(.ipatool, bundle: bundle)
     }
 
     // MARK: - 检查更新

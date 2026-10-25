@@ -1,0 +1,34 @@
+## firstLaunch
+[5:26:12] brand font loaded: true
+[5:26:12] mode=firstLaunch hasCompletedFirstLogin=false
+[5:26:14] account after bootstrap: signedOut
+[5:26:14] search 音乐 → phase=signedOut
+[5:26:18] ipatool version=2.7.0
+[5:26:18] done
+### ipatool 调用（包装脚本记录）
+05:26:17 --version
+
+## signedIn
+[5:24:09] brand font loaded: true
+[5:24:09] mode=signedIn hasCompletedFirstLogin=true
+[5:24:09] account after bootstrap: signedIn（姓名与邮箱不记录）
+[5:24:10] done
+### ipatool 调用（包装脚本记录）
+05:24:09 auth info --format json --non-interactive
+
+## queueAdd
+[5:25:01] brand font loaded: true
+[5:25:01] mode=queueAdd hasCompletedFirstLogin=false
+[5:25:03] rows before quit: ["谜底黑胶=正在开始…", "QQ音乐=排队中"]
+[5:25:03] done
+### ipatool 调用（包装脚本记录）
+05:25:01 download -i 1606306441 --external-version-id 893783327 -o <repo>/build/smoke-downloads/谜底黑胶_3.8.5.ipa --format json
+
+## queueRestore
+[5:25:13] brand font loaded: true
+[5:25:13] mode=queueRestore hasCompletedFirstLogin=false
+[5:25:15] rows after relaunch: ["谜底黑胶=已暂停 canResume=true", "QQ音乐=已暂停 canResume=true"]
+[5:25:15] done
+### ipatool 调用（包装脚本记录）
+（无调用）
+

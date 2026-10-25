@@ -39,6 +39,10 @@ protocol DownloadQueueing: Sendable {
     func remove(_ id: UUID) async
     func removeCompleted() async
     func updates() async -> AsyncStream<[DownloadQueueItem]>
+    /// 放回上次保存的任务（`.paused`，不自动开始）。
+    func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?, addedAt: Date) async
+    /// App 退出时同步终止正在运行的下载子进程。
+    func terminateRunningTasks()
 }
 
 protocol UpdateChecking: Sendable {
@@ -48,6 +52,7 @@ protocol UpdateChecking: Sendable {
 /// 简单键值存储（`UserDefaults` 实现；测试用内存替身）。
 protocol KeyValueStoring: AnyObject {
     func string(forKey defaultName: String) -> String?
+    func bool(forKey defaultName: String) -> Bool
     func set(_ value: Any?, forKey defaultName: String)
 }
 
@@ -72,6 +77,8 @@ struct AppServices {
     var lookup: AppLookupProviding
     var queue: DownloadQueueing
     var historyStore: HistoryStore
+    /// 下载队列的跨启动保存（`queue.json`）；nil = 不保存。
+    var queueStore: DownloadQueueStore?
     var defaults: KeyValueStoring
     var ipatoolVersion: @Sendable () async throws -> String
     var makeUpdateChecker: @Sendable (String) -> UpdateChecking
@@ -102,9 +109,10 @@ struct AppServices {
             lookup: AppLookupService(directory: paths.artworkCacheDirectory),
             queue: DownloadQueue(runner: runner),
             historyStore: HistoryStore(fileURL: paths.historyFile),
+            queueStore: DownloadQueueStore(fileURL: paths.queueFile),
             defaults: UserDefaults.standard,
             ipatoolVersion: { try await locator.detectVersion(paths: paths) },
-            makeUpdateChecker: { UpdateChecker(owner: $0) },
+            makeUpdateChecker: { UpdateChecker(owner: $0, repo: ProjectInfo.repositoryName) },
             setupError: setupError
         )
     }

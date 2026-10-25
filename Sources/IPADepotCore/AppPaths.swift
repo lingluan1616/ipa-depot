@@ -32,6 +32,8 @@ public struct AppPaths: Sendable, Equatable {
     public var artworkCacheDirectory: URL { cacheDirectory.appendingPathComponent("artwork", isDirectory: true) }
     /// 下载记录。
     public var historyFile: URL { root.appendingPathComponent("history.json") }
+    /// 跨启动保存的下载队列（排队中与已暂停的任务）。
+    public var queueFile: URL { root.appendingPathComponent("queue.json") }
 
     @discardableResult
     public func ensureDirectory(_ url: URL) throws -> URL {

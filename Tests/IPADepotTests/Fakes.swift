@@ -106,8 +106,13 @@ final class FakeLoginSession: LoginSessioning, @unchecked Sendable {
 final class FakeAuth: AuthServicing, @unchecked Sendable {
     let infoResult: Locked<Result<AccountInfo, IpatoolError>>
     let revokeCount = Locked(0)
+    /// `auth info` 被调用的次数（首次启动不应调用 = 不读钥匙串）。
+    let infoCount = Locked(0)
     init(_ result: Result<AccountInfo, IpatoolError>) { infoResult = Locked(result) }
-    func info() async throws -> AccountInfo { try infoResult.value.get() }
+    func info() async throws -> AccountInfo {
+        infoCount.mutate { $0 += 1 }
+        return try infoResult.value.get()
+    }
     func revoke() async throws { revokeCount.mutate { $0 += 1 } }
 }
 
@@ -157,6 +162,7 @@ struct FakeLookup: AppLookupProviding {
 final class MemoryDefaults: KeyValueStoring {
     var values: [String: Any] = [:]
     func string(forKey defaultName: String) -> String? { values[defaultName] as? String }
+    func bool(forKey defaultName: String) -> Bool { values[defaultName] as? Bool ?? false }
     func set(_ value: Any?, forKey defaultName: String) { values[defaultName] = value }
 }
 
@@ -210,11 +216,13 @@ func makeServices(root: URL, auth: AuthServicing = FakeAuth(.failure(IpatoolErro
                   search: SearchServicing = FakeSearch(.success([])),
                   versions: VersionServicing = FakeVersions(ids: .success([])),
                   queue: DownloadQueueing = DownloadQueue(makeTask: { FakeDownloadTask(request: $0) }),
-                  login: @escaping @Sendable () -> LoginSessioning = { FakeLoginSession(script: .succeed) }) -> AppServices {
+                  login: @escaping @Sendable () -> LoginSessioning = { FakeLoginSession(script: .succeed) },
+                  defaults: MemoryDefaults = MemoryDefaults()) -> AppServices {
     let paths = AppPaths(root: root.appendingPathComponent("support"))
     return AppServices(paths: paths, auth: auth, makeLoginSession: login, search: search, versions: versions,
                        lookup: FakeLookup(), queue: queue, historyStore: HistoryStore(fileURL: paths.historyFile),
-                       defaults: MemoryDefaults(), ipatoolVersion: { "2.7.0" },
+                       queueStore: DownloadQueueStore(fileURL: paths.queueFile),
+                       defaults: defaults, ipatoolVersion: { "2.7.0" },
                        makeUpdateChecker: { _ in FakeUpdateChecker(result: .upToDate(latest: "0.1.0")) },
                        setupError: nil)
 }

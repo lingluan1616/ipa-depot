@@ -24,6 +24,17 @@ struct DownloadContext: Equatable, Hashable {
         let label = versionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         self.versionLabel = label.isEmpty ? (externalVersionID ?? app.version) : label
     }
+
+    /// 从上次保存的队列恢复。
+    init(persisted entry: PersistedDownload) {
+        self.appID = entry.appID
+        self.name = entry.name
+        self.bundleID = entry.bundleID
+        self.isFree = entry.isFree
+        self.platform = SearchPlatform(rawValue: entry.displayPlatform) ?? .iphone
+        self.externalVersionID = entry.externalVersionID
+        self.versionLabel = entry.versionLabel
+    }
 }
 
 /// 需要领取许可时的提示。`itemID` 为触发提示的失败条目（从历史版本页直接领取时为 nil）。
@@ -128,16 +139,22 @@ final class DownloadsViewModel {
     @ObservationIgnored var onRecord: ((DownloadRecord) -> Void)?
 
     @ObservationIgnored private let queue: DownloadQueueing
+    @ObservationIgnored private let store: DownloadQueueStore?
     @ObservationIgnored private let destination: @MainActor () throws -> URL
+    /// 最近一次写入 `queue.json` 的内容（相同则不重写）。
+    @ObservationIgnored private var lastPersisted: [PersistedDownload] = []
     @ObservationIgnored private var recorded: Set<UUID> = []
     @ObservationIgnored private var prompted: Set<UUID> = []
     @ObservationIgnored private var seen: Set<UUID> = []
     @ObservationIgnored private var outputs: [UUID: URL] = [:]
     @ObservationIgnored private var observeTask: Task<Void, Never>?
 
-    /// - Parameter destination: 返回（并在需要时创建）下载目录。
-    init(queue: DownloadQueueing, destination: @escaping @MainActor () throws -> URL) {
+    /// - Parameters:
+    ///   - store: 队列的跨启动保存；nil = 不保存。
+    ///   - destination: 返回（并在需要时创建）下载目录。
+    init(queue: DownloadQueueing, store: DownloadQueueStore? = nil, destination: @escaping @MainActor () throws -> URL) {
         self.queue = queue
+        self.store = store
         self.destination = destination
     }
 
@@ -153,11 +170,21 @@ final class DownloadsViewModel {
     var completedRows: [DownloadRow] { rows.filter { $0.status.isFinished } }
     var activeCount: Int { activeRows.count }
 
-    /// 开始订阅队列快照（App 启动时调用一次）。
+    /// 恢复上次保存的队列（一律为「已暂停」），然后开始订阅队列快照（App 启动时调用一次）。
     func startObserving() {
         guard observeTask == nil else { return }
         let queue = self.queue
+        let restored = store?.load() ?? []
+        lastPersisted = restored
+        for entry in restored {
+            contexts[entry.id] = DownloadContext(persisted: entry)
+            outputs[entry.id] = URL(fileURLWithPath: entry.outputPath)
+        }
+        let progresses = restored.map { $0.restoredProgress() }
         observeTask = Task { [weak self] in
+            for (entry, progress) in zip(restored, progresses) {
+                await queue.restore(entry.request, id: entry.id, progress: progress, addedAt: entry.addedAt)
+            }
             for await snapshot in await queue.updates() {
                 self?.apply(snapshot)
             }
@@ -219,6 +246,43 @@ final class DownloadsViewModel {
         licensePrompt = nil
     }
 
+    // MARK: - 跨启动保存
+
+    /// 当前应保存的条目：排队中、进行中（含停止中 / 校验中）、已暂停。完成与失败的不保存。
+    func persistableEntries(_ snapshot: [DownloadQueueItem]) -> [PersistedDownload] {
+        snapshot.compactMap { item in
+            switch item.status {
+            case .queued, .running, .stopping, .verifying, .paused: break
+            case .completed, .failed: return nil
+            }
+            guard let context = contexts[item.id] else { return nil }
+            return PersistedDownload(
+                id: item.id, appID: context.appID, name: context.name, bundleID: context.bundleID,
+                versionLabel: context.versionLabel, externalVersionID: item.request.externalVersionID,
+                purchase: item.request.purchase, outputPath: item.request.output.path,
+                platform: item.request.platform, displayPlatform: context.platform.rawValue,
+                isFree: context.isFree, totalBytes: item.progress?.total, addedAt: item.addedAt)
+        }
+    }
+
+    /// 内容有变化时原子写 `queue.json`（写入失败不打断界面，下次变化时再试）。
+    private func persist(_ snapshot: [DownloadQueueItem]) {
+        guard let store else { return }
+        let entries = persistableEntries(snapshot)
+        guard entries != lastPersisted else { return }
+        do {
+            try store.save(entries)
+            lastPersisted = entries
+        } catch {
+            // 忽略：保持 lastPersisted 不变，下次快照变化时重试。
+        }
+    }
+
+    /// App 退出时调用：按当前快照立即写盘。
+    func persistNow() {
+        persist(items)
+    }
+
     // MARK: - 快照处理
 
     func apply(_ snapshot: [DownloadQueueItem]) {
@@ -231,6 +295,7 @@ final class DownloadsViewModel {
             seen.remove(gone)
         }
         seen.formUnion(ids)
+        persist(snapshot)
 
         for item in snapshot {
             guard let context = contexts[item.id] else { continue }

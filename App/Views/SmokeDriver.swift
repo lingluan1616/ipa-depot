@@ -22,6 +22,12 @@ enum SmokeDriver {
         }
 
         note("brand font loaded: \(NSFont(name: BrandFont.postScriptName, size: 12) != nil)")
+        if let mode = UserDefaults.standard.string(forKey: "IPADepotSmokeMode") {
+            await runPhase3(mode: mode, model: model, dir: dir, note: note)
+            note("done")
+            NSApp.terminate(nil)
+            return
+        }
         await wait(timeout: 60) { model.accountState != .checking }
         let signedIn = model.account != nil
         note("account: \(signedIn ? "signedIn（姓名与邮箱不记录）" : String(describing: model.accountState))")
@@ -87,6 +93,71 @@ enum SmokeDriver {
         note("ipatool version=\(model.settings.ipatoolVersion ?? model.settings.ipatoolVersionError ?? "-")")
         note("done")
         NSApp.terminate(nil)
+    }
+
+    /// 阶段三冒烟（`-IPADepotSmokeMode <mode>`）：
+    /// - `firstLaunch`：首次启动标志为假 → 未登录、搜索先引导登录、准备页、设置页 ipatool 版本；
+    /// - `signedIn`：配合启动参数 `-hasCompletedFirstLogin YES`（参数域，不写偏好）→ 启动查询账号；
+    /// - `queueAdd`：加入两个下载任务（需配合只 sleep 的假 ipatool，不真正下载），然后退出；
+    /// - `queueRestore`：重新启动后查看恢复的队列。
+    private static func runPhase3(mode: String, model: AppModel, dir: URL, note: (String) -> Void) async {
+        func describe(_ state: AppModel.AccountState) -> String {
+            switch state {
+            case .checking: return "checking"
+            case .signedOut: return "signedOut"
+            case .signedIn: return "signedIn（姓名与邮箱不记录）"
+            case .unknown(let e): return "unknown(\(e.message))"
+            }
+        }
+        note("mode=\(mode) hasCompletedFirstLogin=\(model.hasCompletedFirstLogin)")
+        switch mode {
+        case "firstLaunch":
+            await sleep(1.5)
+            note("account after bootstrap: \(describe(model.accountState))")
+            capture("p3-01-first-launch", dir: dir)
+            model.page = .search
+            model.search.query = "音乐"
+            await model.search.search()
+            note("search 音乐 → phase=\(model.search.phase)")
+            await sleep(0.8)
+            capture("p3-02-first-launch-search", dir: dir)
+            model.beginLogin()
+            await sleep(1.2)
+            capture("p3-03-login-intro", dir: dir)
+            model.dismissLogin()
+            await sleep(0.8)
+            model.page = .settings
+            await wait(timeout: 20) { model.settings.ipatoolVersion != nil || model.settings.ipatoolVersionError != nil }
+            await sleep(1.0)
+            note("ipatool version=\(model.settings.ipatoolVersion ?? model.settings.ipatoolVersionError ?? "-")")
+            capture("p3-04-settings", dir: dir)
+        case "signedIn":
+            await wait(timeout: 60) { model.accountState != .checking }
+            note("account after bootstrap: \(describe(model.accountState))")
+            await sleep(1.0)
+            capture("p3-05-signed-in", dir: dir)
+        case "queueAdd":
+            let first = AppSummary(id: 1606306441, bundleID: "", name: "谜底黑胶", version: "3.8.5", price: 0, platforms: ["iphone"])
+            let second = AppSummary(id: 414603431, bundleID: "com.tencent.QQMusic", name: "QQ音乐", version: "20.9.6",
+                                    price: 0, platforms: ["iphone"])
+            await model.downloads.enqueue(DownloadContext(app: first, platform: .iphone, externalVersionID: "893783327",
+                                                          versionLabel: "3.8.5"))
+            await model.downloads.enqueue(DownloadContext(app: second, platform: .iphone, externalVersionID: nil,
+                                                          versionLabel: nil))
+            model.page = .downloads
+            await wait(timeout: 10) { model.downloads.activeRows.count == 2 }
+            await sleep(2.0)
+            note("rows before quit: \(model.downloads.activeRows.map { "\($0.context.name)=\($0.statusText)" })")
+            capture("p3-06-queue-added", dir: dir)
+        case "queueRestore":
+            model.page = .downloads
+            await wait(timeout: 10) { !model.downloads.activeRows.isEmpty }
+            await sleep(2.0)
+            note("rows after relaunch: \(model.downloads.activeRows.map { "\($0.context.name)=\($0.statusText) canResume=\($0.canResume)" })")
+            capture("p3-07-queue-restored", dir: dir)
+        default:
+            note("unknown mode")
+        }
     }
 
     private static func wait(timeout: TimeInterval, _ condition: () -> Bool) async {

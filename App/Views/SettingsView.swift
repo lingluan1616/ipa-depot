@@ -4,7 +4,7 @@ import IPADepotCore
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
-    @State private var showingLicense = false
+    @State private var shownLicense: SettingsViewModel.License?
 
     var body: some View {
         let settings = model.settings
@@ -64,10 +64,25 @@ struct SettingsView: View {
                         Text(verbatim: ProjectInfo.displayURL).foregroundStyle(.secondary)
                     }
                 }
-                LabeledContent("开源组件") {
+            }
+
+            Section("许可") {
+                LabeledContent("IPA Depot") {
+                    HStack(spacing: 8) {
+                        Text("MIT 许可").foregroundStyle(.secondary)
+                        Button("许可全文…") { shownLicense = .app }
+                    }
+                }
+                LabeledContent("ipatool") {
                     HStack(spacing: 8) {
                         Link("基于 majd/ipatool（MIT）", destination: ProjectInfo.ipatoolURL)
-                        Button("许可全文…") { showingLicense = true }
+                        Button("许可全文…") { shownLicense = .ipatool }
+                    }
+                }
+                LabeledContent("阿里妈妈数黑体") {
+                    HStack(spacing: 8) {
+                        Text("不在 MIT 范围内").foregroundStyle(.secondary)
+                        Button("法律声明…") { shownLicense = .font }
                     }
                 }
             }
@@ -96,8 +111,8 @@ struct SettingsView: View {
             await settings.refreshCacheSizes()
             await settings.loadIpatoolVersion()
         }
-        .sheet(isPresented: $showingLicense) {
-            LicenseSheet(text: settings.ipatoolLicenseText())
+        .sheet(item: $shownLicense) { license in
+            LicenseSheet(license: license, text: settings.licenseText(license))
         }
     }
 
@@ -138,14 +153,23 @@ struct SettingsView: View {
 }
 
 private struct LicenseSheet: View {
+    let license: SettingsViewModel.License
     let text: String?
     @Environment(\.dismiss) private var dismiss
 
+    private var title: LocalizedStringKey {
+        switch license {
+        case .app: return "IPA Depot 许可（MIT）"
+        case .ipatool: return "ipatool 许可（MIT）"
+        case .font: return "阿里妈妈数黑体法律声明"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ipatool 许可（MIT）").font(.headline)
+            Text(title).font(.headline)
             ScrollView {
-                Text(text ?? String(localized: "未找到许可文件（Contents/Resources/ipatool-LICENSE）。"))
+                Text(text ?? String(localized: "未找到许可文件（Contents/Resources/\(license.resourcePath)）。"))
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)

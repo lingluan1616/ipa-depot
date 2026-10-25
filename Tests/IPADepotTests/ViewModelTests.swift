@@ -429,8 +429,14 @@ final class HistoryAndSettingsTests: VMTestCase {
         XCTAssertTrue(enabled.canCheckForUpdates)
         await enabled.checkForUpdates()
         XCTAssertEqual(enabled.updateState, .available(release))
-        XCTAssertNil(ProjectInfo.projectURL)
-        XCTAssertEqual(ProjectInfo.displayURL, "https://github.com/<owner>/ipa-depot")
+        XCTAssertEqual(ProjectInfo.repositoryName, "ipa-depot")
+        XCTAssertTrue(ProjectInfo.displayURL.hasSuffix("/\(ProjectInfo.repositoryOwner)/ipa-depot"))
+        if ProjectInfo.repositoryOwner == ProjectInfo.placeholderOwner {
+            XCTAssertNil(ProjectInfo.owner, "占位 owner 视为未配置")
+            XCTAssertNil(ProjectInfo.projectURL)
+        } else {
+            XCTAssertEqual(ProjectInfo.projectURL?.absoluteString, "https://github.com/\(ProjectInfo.repositoryOwner)/ipa-depot")
+        }
     }
 
     func testAppModelBootstrapStates() async {
