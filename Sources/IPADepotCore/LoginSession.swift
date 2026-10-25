@@ -74,29 +74,28 @@ public final class LoginSession: @unchecked Sendable {
     /// 登录，直到成功、失败或取消。2FA 时会发出 `.needsTwoFactor` 并等待 `submitTwoFactorCode`。
     public func login(email: String, password: String,
                       onEvent: @escaping @Sendable (LoginEvent) -> Void) async -> Result<AccountInfo, IpatoolError> {
-        lock.lock()
-        if _state == .running || _state == .awaitingTwoFactor || _state == .verifyingTwoFactor {
-            lock.unlock()
-            return .failure(IpatoolError(kind: .unknown, raw: "login already in progress"))
+        let busy: Bool = lock.withLock {
+            if _state == .running || _state == .awaitingTwoFactor || _state == .verifyingTwoFactor { return true }
+            self.email = email
+            self.password = password
+            self.onEvent = onEvent
+            _state = .running
+            return false
         }
-        self.email = email
-        self.password = password
-        self.onEvent = onEvent
-        _state = .running
-        lock.unlock()
+        if busy { return .failure(IpatoolError(kind: .unknown, raw: "login already in progress")) }
 
         let outcome = await run()
-        lock.lock()
-        self.email = nil
-        self.password = nil
-        terminal = nil
-        process = nil
-        switch outcome {
-        case .success(let account): _state = .succeeded(account)
-        case .failure(let error): _state = .failed(error)
+        lock.withLock {
+            self.email = nil
+            self.password = nil
+            terminal = nil
+            process = nil
+            switch outcome {
+            case .success(let account): _state = .succeeded(account)
+            case .failure(let error): _state = .failed(error)
+            }
+            self.onEvent = nil
         }
-        self.onEvent = nil
-        lock.unlock()
         switch outcome {
         case .success(let account): onEvent(.succeeded(account))
         case .failure(let error): onEvent(.failed(error))
@@ -142,10 +141,10 @@ public final class LoginSession: @unchecked Sendable {
         } catch {
             return .failure(IpatoolError(kind: .unknown, raw: error.localizedDescription))
         }
-        lock.lock()
-        terminal = pty
-        process = proc
-        lock.unlock()
+        lock.withLock {
+            terminal = pty
+            process = proc
+        }
 
         let detector = DetectorBox()
         let result: IpatoolProcess.Result

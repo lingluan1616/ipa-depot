@@ -87,6 +87,7 @@ final class FakeIpatoolTests: TempDirTestCase {
 
     func testLoginSessionAnswersPromptsThroughPTYWithTwoFactor() async throws {
         let script = try makeScript("""
+        # 防泄漏断言（反向测试）：参数里出现密码参数或密码明文即判失败
         for a in "$@"; do case "$a" in -p|--password|*s3cr3t*) echo '{"level":"error","error":"password leaked into argv","success":false}'; exit 1;; esac; done
         [ -t 0 ] || { echo '{"level":"error","error":"stdin is not a tty","success":false}'; exit 1; }
         printf 'enter Apple ID (email address or phone number): ' >&2
@@ -175,10 +176,12 @@ final class FakeIpatoolTests: TempDirTestCase {
         let task = DownloadTask(request: DownloadRequest(appID: 1, output: tempDir.appendingPathComponent("a.ipa")),
                                 runner: makeRunner(executable: script))
         for _ in 0..<2 {
-            let pauser = Task { try? await Task.sleep(nanoseconds: 500_000_000); task.pause() }
-            let outcome = await task.start { _ in }
-            _ = await pauser.value
+            // 收到第一条进度后暂停（= 终止子进程），再次 start 即「继续」
+            let outcome = await task.start { event in
+                if case .progress = event { task.pause() }
+            }
             XCTAssertEqual(outcome, .paused)
+            XCTAssertFalse(task.isRunning)
         }
         XCTAssertEqual(try String(contentsOf: counter, encoding: .utf8).split(separator: "\n").count, 2)
     }

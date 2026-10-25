@@ -104,7 +104,9 @@ public struct VersionService: Sendable {
             default: return nil
             }
         }
-        return (ids, event["bundleID"]?.stringValue)
+        // 用 -i 调用时 ipatool 2.7.0 返回的 bundleID 是空字符串（真机实测），视为未知
+        let bundleID = event["bundleID"]?.stringValue.flatMap { $0.isEmpty ? nil : $0 }
+        return (ids, bundleID)
     }
 
     public static func parseMetadata(_ result: IpatoolProcess.Result, fallbackID: String) throws -> VersionMetadata {

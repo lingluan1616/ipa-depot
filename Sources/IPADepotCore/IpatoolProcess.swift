@@ -228,9 +228,22 @@ public final class IpatoolProcess: @unchecked Sendable {
 
         collector.readers = [stdoutReader, stderrReader, terminalReader].compactMap { $0 }
 
-        proc.terminationHandler = { process in
+        proc.terminationHandler = { [queue] process in
             collector.lock.lock(); collector.exitCode = process.terminationStatus; collector.lock.unlock()
             finishIfReady()
+            // 子进程已退出，但若有孙进程继承了输出管道，EOF 可能迟迟不来；最多再等 1.5 秒就收尾。
+            queue.asyncAfter(deadline: .now() + 1.5) {
+                collector.lock.lock()
+                let pendingReaders = collector.resumed ? [] : collector.readers
+                if !collector.resumed {
+                    collector.stdoutDone = true
+                    collector.stderrDone = true
+                    collector.terminalDone = true
+                }
+                collector.lock.unlock()
+                pendingReaders.forEach { $0.cancel() }
+                finishIfReady()
+            }
         }
 
         do {

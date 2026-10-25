@@ -72,12 +72,14 @@ public final class DownloadTask: @unchecked Sendable {
     /// 开始（或继续）下载，直到完成、暂停、取消或失败。
     @discardableResult
     public func start(onEvent: @escaping @Sendable (DownloadEvent) -> Void) async -> DownloadOutcome {
-        lock.lock()
-        if running { lock.unlock(); return .failed(IpatoolError(kind: .unknown, raw: "download already running")) }
-        running = true
-        stopReason = nil
-        lock.unlock()
-        defer { lock.lock(); running = false; process = nil; lock.unlock() }
+        let alreadyRunning: Bool = lock.withLock {
+            if running { return true }
+            running = true
+            stopReason = nil
+            return false
+        }
+        if alreadyRunning { return .failed(IpatoolError(kind: .unknown, raw: "download already running")) }
+        defer { lock.withLock { running = false; process = nil } }
 
         let outcome = await perform(onEvent: onEvent)
         onEvent(.finished(outcome))
@@ -108,10 +110,12 @@ public final class DownloadTask: @unchecked Sendable {
             return .failed(IpatoolError(kind: .unknown, raw: error.localizedDescription))
         }
 
-        lock.lock()
-        if let reason = stopReason { lock.unlock(); return reason }
-        process = proc
-        lock.unlock()
+        let earlyStop: DownloadOutcome? = lock.withLock {
+            if let reason = stopReason { return reason }
+            process = proc
+            return nil
+        }
+        if let earlyStop { return earlyStop }
 
         onEvent(.started)
         let tracker = ProgressTracker()
@@ -149,9 +153,7 @@ public final class DownloadTask: @unchecked Sendable {
         }
         poller.cancel()
 
-        lock.lock()
-        let reason = stopReason
-        lock.unlock()
+        let reason = lock.withLock { stopReason }
         if let reason, result.wasCancelled { return reason }
 
         do {

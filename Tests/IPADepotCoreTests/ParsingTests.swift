@@ -66,6 +66,8 @@ final class IpatoolLineParserTests: XCTestCase {
         let (ids, bundle) = try VersionService.parseVersionList(result([list]))
         XCTAssertEqual(ids, ["853456789", "853999999", "854000001"])
         XCTAssertEqual(bundle, "com.example.app")
+        let empty = #"{"level":"info","externalVersionIdentifiers":[],"bundleID":"","success":true}"#
+        XCTAssertNil(try VersionService.parseVersionList(result([empty])).1)
 
         let meta = #"{"level":"info","externalVersionID":"853999999","displayVersion":"3.8.5","releaseDate":"2026-09-01T08:00:00Z","success":true}"#
         let m = try VersionService.parseMetadata(result([meta]), fallbackID: "x")
