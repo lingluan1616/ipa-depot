@@ -46,11 +46,32 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.core.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  IPADepotTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/IPADepotTests
+      # 视图模型与服务协议（不含 SwiftUI 视图）直接编进测试包，测试时无需启动 App（避免宿主 App 启动时访问钥匙串）
+      - path: App/Logic
+    dependencies:
+      - target: IPADepotCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.tests
+        GENERATE_INFOPLIST_FILE: YES
+
   IPADepot:
     type: application
     platform: macOS
     sources:
       - path: App
+        excludes:
+          - "Resources/**"
+          - "Info.plist"
+      # 字体以文件夹形式拷到 Contents/Resources/Fonts（Info.plist 的 ATSApplicationFontsPath 指向它）
+      - path: App/Resources/Fonts
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: IPADepotCore
         embed: true
@@ -59,9 +80,13 @@ targets:
         PRODUCT_NAME: "IPA Depot"
         PRODUCT_BUNDLE_IDENTIFIER: app.ipadepot.mac
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: "IPA Depot"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2026 IPA Depot contributors. MIT License."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
         ENABLE_PREVIEWS: YES
     postCompileScripts:
@@ -89,6 +114,7 @@ schemes:
       config: Debug
       targets:
         - IPADepotCoreTests
+        - IPADepotTests
     archive:
       config: Release
   IPADepotCore:
@@ -96,8 +122,10 @@ schemes:
       targets:
         IPADepotCore: all
         IPADepotCoreTests: [test]
+        IPADepotTests: [test]
     test:
       config: Debug
       gatherCoverageData: false
       targets:
         - IPADepotCoreTests
+        - IPADepotTests

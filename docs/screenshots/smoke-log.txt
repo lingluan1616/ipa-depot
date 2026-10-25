@@ -1,0 +1,8 @@
+[5:02:15] brand font loaded: true
+[5:02:15] account: signedIn（姓名与邮箱不记录）
+[5:02:23] search 音乐 → phase=results rows=22
+[5:02:26] search 谜底黑胶 → rows=22 found=true
+[5:02:34] versions phase=loaded count=141
+[5:02:48] versions loaded=13 batches=2 first=["893783327=3.8.5", "893564475=3.8.4", "893275962=3.8.3"]
+[5:02:52] ipatool version=2.7.0
+[5:02:52] done

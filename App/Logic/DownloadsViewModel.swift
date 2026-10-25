@@ -1,0 +1,260 @@
+import Foundation
+import Observation
+import IPADepotCore
+
+/// 发起一次下载所需的展示信息（队列本身只认 `DownloadRequest`）。
+struct DownloadContext: Equatable, Hashable {
+    let appID: Int64
+    let name: String
+    let bundleID: String
+    let isFree: Bool
+    let platform: SearchPlatform
+    /// nil = 最新版。
+    let externalVersionID: String?
+    /// 用于文件名与显示的版本号（未知时用外部版本 ID）。
+    let versionLabel: String
+
+    init(app: AppSummary, platform: SearchPlatform, externalVersionID: String?, versionLabel: String?) {
+        self.appID = app.id
+        self.name = app.name.isEmpty ? app.bundleID : app.name
+        self.bundleID = app.bundleID
+        self.isFree = app.isFree
+        self.platform = platform
+        self.externalVersionID = externalVersionID
+        let label = versionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.versionLabel = label.isEmpty ? (externalVersionID ?? app.version) : label
+    }
+}
+
+/// 需要领取许可时的提示。`itemID` 为触发提示的失败条目（从历史版本页直接领取时为 nil）。
+struct LicensePrompt: Identifiable, Equatable {
+    let id = UUID()
+    let itemID: UUID?
+    let context: DownloadContext
+
+    var isFree: Bool { context.isFree }
+}
+
+/// 下载页一行。
+struct DownloadRow: Identifiable, Equatable {
+    let id: UUID
+    let context: DownloadContext
+    let status: DownloadItemStatus
+    let progress: DownloadProgress?
+    let lastLog: String?
+    let output: URL
+
+    var fraction: Double? {
+        if case .completed = status { return 1 }
+        return progress?.fraction
+    }
+
+    var sizeText: String? {
+        if case .completed(let result) = status, let size = Self.fileSize(result.fileURL) {
+            return Format.bytes(size)
+        }
+        guard let progress, progress.bytes > 0 || progress.total != nil else { return nil }
+        if let total = progress.total {
+            return "\(Format.bytes(progress.bytes)) / \(Format.bytes(total))"
+        }
+        return Format.bytes(progress.bytes)
+    }
+
+    var percentText: String? {
+        guard status == .running || status == .paused || status == .stopping, let fraction = progress?.fraction else { return nil }
+        return "\(Int((fraction * 100).rounded(.down)))%"
+    }
+
+    var speedText: String? {
+        guard status == .running, let speed = progress?.bytesPerSecond, speed > 0 else { return nil }
+        return Format.speed(speed)
+    }
+
+    var statusText: String {
+        switch status {
+        case .queued: return String(localized: "排队中")
+        case .running:
+            if progress == nil { return lastLog.map(Self.describe(log:)) ?? String(localized: "正在开始…") }
+            return String(localized: "正在下载")
+        case .stopping: return String(localized: "正在停止…")
+        case .paused: return String(localized: "已暂停")
+        case .verifying: return String(localized: "正在校验安装包")
+        case .completed: return String(localized: "已完成")
+        case .failed(let error): return error.message
+        }
+    }
+
+    var errorRaw: String? {
+        if case .failed(let error) = status, !error.raw.isEmpty { return error.raw }
+        return nil
+    }
+
+    var fileURL: URL? {
+        if case .completed(let result) = status { return result.fileURL }
+        return nil
+    }
+
+    var canPause: Bool { status == .running || status == .queued || status == .verifying }
+    var canResume: Bool {
+        switch status {
+        case .paused, .failed: return true
+        default: return false
+        }
+    }
+    var canCancel: Bool { !status.isFinished && status != .stopping }
+
+    static func describe(log: String) -> String {
+        let lower = log.lowercased()
+        if lower.contains("unicorn") || lower.contains("kbsync") || lower.contains("preparing") {
+            return String(localized: "正在准备下载组件…首次可能需要几分钟。")
+        }
+        return log
+    }
+
+    static func fileSize(_ url: URL) -> Int64? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value
+    }
+}
+
+@MainActor
+@Observable
+final class DownloadsViewModel {
+    private(set) var items: [DownloadQueueItem] = []
+    private(set) var contexts: [UUID: DownloadContext] = [:]
+    var licensePrompt: LicensePrompt?
+    var enqueueError: ErrorPresentation?
+
+    /// 下载完成时回调（写入记录）。
+    @ObservationIgnored var onRecord: ((DownloadRecord) -> Void)?
+
+    @ObservationIgnored private let queue: DownloadQueueing
+    @ObservationIgnored private let destination: @MainActor () throws -> URL
+    @ObservationIgnored private var recorded: Set<UUID> = []
+    @ObservationIgnored private var prompted: Set<UUID> = []
+    @ObservationIgnored private var seen: Set<UUID> = []
+    @ObservationIgnored private var outputs: [UUID: URL] = [:]
+    @ObservationIgnored private var observeTask: Task<Void, Never>?
+
+    /// - Parameter destination: 返回（并在需要时创建）下载目录。
+    init(queue: DownloadQueueing, destination: @escaping @MainActor () throws -> URL) {
+        self.queue = queue
+        self.destination = destination
+    }
+
+    var rows: [DownloadRow] {
+        items.compactMap { item in
+            guard let context = contexts[item.id] else { return nil }
+            return DownloadRow(id: item.id, context: context, status: item.status, progress: item.progress,
+                               lastLog: item.lastLog, output: item.request.output)
+        }
+    }
+
+    var activeRows: [DownloadRow] { rows.filter { !$0.status.isFinished } }
+    var completedRows: [DownloadRow] { rows.filter { $0.status.isFinished } }
+    var activeCount: Int { activeRows.count }
+
+    /// 开始订阅队列快照（App 启动时调用一次）。
+    func startObserving() {
+        guard observeTask == nil else { return }
+        let queue = self.queue
+        observeTask = Task { [weak self] in
+            for await snapshot in await queue.updates() {
+                self?.apply(snapshot)
+            }
+        }
+    }
+
+    func stopObserving() {
+        observeTask?.cancel()
+        observeTask = nil
+    }
+
+    /// 入队。目标文件：下载目录 + `<name>_<version>.ipa`（非法字符替换、同名加序号）。
+    @discardableResult
+    func enqueue(_ context: DownloadContext, purchase: Bool = false) async -> UUID? {
+        let directory: URL
+        do {
+            directory = try destination()
+        } catch {
+            enqueueError = ErrorPresentation(message: String(localized: "无法创建下载目录。"), raw: error.localizedDescription)
+            return nil
+        }
+        let reserved = Set(outputs.values.map { $0.standardizedFileURL.path })
+        let output = DownloadFileNamer.uniqueURL(in: directory, name: context.name, version: context.versionLabel,
+                                                 reserved: reserved)
+        let request = DownloadRequest(appID: context.appID, externalVersionID: context.externalVersionID,
+                                      purchase: purchase, output: output, platform: context.platform.downloadPlatform)
+        let id = UUID()
+        contexts[id] = context
+        outputs[id] = output
+        await queue.add(request, id: id)
+        return id
+    }
+
+    func pause(_ id: UUID) { Task { await queue.pause(id) } }
+    func resume(_ id: UUID) { Task { await queue.resume(id) } }
+    func cancel(_ id: UUID) { Task { await queue.cancel(id) } }
+    func remove(_ id: UUID) { Task { await queue.remove(id) } }
+    func clearCompleted() { Task { await queue.removeCompleted() } }
+
+    // MARK: - 许可
+
+    /// 历史版本页遇到 `.licenseRequired` 时调用：弹出领取许可提示。
+    func requestLicense(for context: DownloadContext) {
+        licensePrompt = LicensePrompt(itemID: nil, context: context)
+    }
+
+    /// 用户确认领取免费许可：以 `purchase: true` 重新发起下载。
+    func confirmLicense(_ prompt: LicensePrompt) async {
+        licensePrompt = nil
+        guard prompt.isFree else { return }
+        if let itemID = prompt.itemID {
+            await queue.remove(itemID)
+            outputs[itemID] = nil
+        }
+        await enqueue(prompt.context, purchase: true)
+    }
+
+    func dismissLicense() {
+        licensePrompt = nil
+    }
+
+    // MARK: - 快照处理
+
+    func apply(_ snapshot: [DownloadQueueItem]) {
+        items = snapshot
+        let ids = Set(snapshot.map(\.id))
+        // 曾出现过、现在不在快照里 = 已取消 / 已移除
+        for gone in seen.subtracting(ids) {
+            contexts[gone] = nil
+            outputs[gone] = nil
+            seen.remove(gone)
+        }
+        seen.formUnion(ids)
+
+        for item in snapshot {
+            guard let context = contexts[item.id] else { continue }
+            switch item.status {
+            case .completed(let result):
+                guard recorded.insert(item.id).inserted else { continue }
+                let size = DownloadRow.fileSize(result.fileURL) ?? item.progress?.total ?? 0
+                let record = DownloadRecord(
+                    appID: context.appID,
+                    name: context.name,
+                    bundleID: context.bundleID.isEmpty ? result.info.bundleIdentifier : context.bundleID,
+                    version: result.info.shortVersion ?? context.versionLabel,
+                    externalVersionID: context.externalVersionID,
+                    size: size,
+                    path: result.fileURL.path)
+                onRecord?(record)
+            case .failed(let error) where error.kind == .licenseRequired:
+                guard prompted.insert(item.id).inserted else { continue }
+                if licensePrompt == nil {
+                    licensePrompt = LicensePrompt(itemID: item.id, context: context)
+                }
+            default:
+                continue
+            }
+        }
+    }
+}

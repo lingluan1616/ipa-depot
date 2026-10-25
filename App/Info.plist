@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 其余键由 GENERATE_INFOPLIST_FILE 生成；这里只放生成器不支持的键 -->
+	<key>ATSApplicationFontsPath</key>
+	<string>Fonts</string>
+</dict>
+</plist>

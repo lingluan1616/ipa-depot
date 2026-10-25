@@ -109,7 +109,8 @@ public enum IpatoolErrorMapper {
         (.networkUnreachable, ["no such host", "dial tcp", "i/o timeout", "connection refused", "connection reset",
                                "network is unreachable", "tls handshake timeout", "context deadline exceeded",
                                "client.timeout exceeded", "host is down", "no route to host",
-                               "temporary failure in name resolution", "server misbehaving"]),
+                               "temporary failure in name resolution", "server misbehaving",
+                               "unexpected eof", "send sap request"]),
     ]
 
     public static func map(_ raw: String, exitCode: Int32? = nil) -> IpatoolError {
