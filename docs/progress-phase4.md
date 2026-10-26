@@ -83,4 +83,8 @@ python3 -I scripts/sync-strings.py --check                              → exit
 
 ## 收工清理
 
-见 git 提交后的清理记录（本节在清理完成后更新）。
+- `build/` 只剩 `downloads/`（ipatool 官方包缓存）与 `release/`。
+- 已逐项移入 `~/.Trash/ipa-depot-test-cleanup-20261027-phase4/`（未用 rm、未用通配符）：`build/DerivedData`、`build/smoke-data`、`build/smoke-downloads`、`build/smoke-shots`、`build/smoke-tools`、`build/tmp-phase4`（英文译文 json、Release 构建日志、真实数据目录前后 md5 快照）、`$TMPDIR/app.ipadepot.mac.savedState`。
+- 系统临时目录里 `IPADepot*` 为 0 个（测试 tearDown 自删）；无残留 IPA Depot / 假 ipatool / sleep 进程。
+- 旧 Release 产物在 `~/.Trash/ipa-depot-release-old-20261027/release`。
+- 过程说明：做真实数据目录快照时有一条命令误把 md5 列表写到了仓库外的 `~/Documents/claude/ignore`（以及 `/tmp/claude-501/ipadepot-before.txt`），当即移回 `build/tmp-phase4/` 后随之进入上述废纸篓目录，仓库外已无残留。
