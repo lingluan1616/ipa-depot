@@ -38,10 +38,10 @@ xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"
 
 这条命令只是去掉 macOS 给网上下载文件加的「隔离」标记，不修改 App 本身。
 
-**首次登录时会发生两件事：**
+**首次登录与首次使用时会发生两件事：**
 
 - **下载运行组件**：ipatool 第一次登录或下载时，会从网上下载它需要的运行组件（约 56 MB，存放在 `~/Library/Caches/ipatool`），可能需要几分钟，请保持网络畅通。
-- **钥匙串授权**：ipatool 把登录信息保存在你的「登录」钥匙串里。第一次访问时系统会弹出「ipatool 想要使用钥匙串中的机密信息」，并要求输入这台 Mac 的登录密码，请选择 **「始终允许」**。如果只点了「允许」，之后每次访问都会再问一次。IPA Depot 更新到新版本后，系统可能会再询问一次。
+- **钥匙串授权（会弹两次）**：ipatool 把登录信息保存在你的「登录」钥匙串里。授权框**不在登录时出现**，而是登录成功后**第一次搜索时弹一次**、**第一次查看历史版本或下载时再弹一次**（ipatool 用到两条不同的钥匙串记录，各问一次）。系统会提示「ipatool 想要使用钥匙串中的机密信息」并要求输入这台 Mac 的登录密码，两次都请选择 **「始终允许」**，之后不再询问。如果只点了「允许」，之后每次访问都会再问一次。IPA Depot 更新到新版本后，系统可能会再询问。
 
 ## 使用说明
 
@@ -77,10 +77,10 @@ Apple 让登录凭据失效了。登出后重新登录即可。
 验证码会推送到登录了同一 Apple ID 的 iPhone、iPad 或 Mac 上。验证码只能输两次，失败后请关闭登录窗口重新登录，等新的验证码到了再输。
 
 **搜不到某个 App，或者结果和手机上不一样**
-搜索和下载都跟随**账号所在地区**的 App Store。例如中国区账号搜不到只在美区上架的 App。
+搜索和下载都跟随**账号所在地区**的 App Store。例如中国区账号搜不到只在美区上架的 App。想下其他地区的 App，需要先登出，再用该地区的 Apple ID 登录。
 
 **下载中断了怎么办**
-在「下载」页点「继续」，会从已下载的部分接着下（未完成的数据保存在下载目录里的 `<文件名>.ipa.tmp`）。退出 App 时未完成的任务会保留，下次打开恢复为「已暂停」。点「取消」会删除这个未完成的文件。
+在「下载」页点「继续」，会从已下载的部分接着下（未完成的数据保存在下载目录里的 `<文件名>.ipa.tmp`）。因网络中断等原因失败的任务会留在列表里，显示「失败：原因」，点「重试」同样从断点续传。退出 App 时未完成的任务（包括失败的）会保留，下次打开恢复为「已暂停」，失败的还会注明上次失败的原因。点「取消」会删除这个未完成的文件。
 
 **提示「找不到钥匙串」**
 你的 Mac 用户可能没有默认钥匙串。打开「钥匙串访问」，确认「登录」钥匙串存在并设为默认后重试。
@@ -127,6 +127,6 @@ IPA Depot 以 [MIT 许可](LICENSE) 发布。内置的 ipatool 为 MIT 许可；
 
 **IPA Depot** is a native macOS app for signing in with your Apple ID, searching the App Store, and downloading the latest or any previous version of an app as an IPA. It wraps the bundled [ipatool](https://github.com/majd/ipatool) 2.7.0 (MIT) — no Terminal required. Requires macOS 14 or later (universal: Apple silicon and Intel).
 
-The app is ad-hoc signed and not notarized. On first launch, open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**. If macOS says the app "is damaged", run `xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"`. The first sign-in downloads ipatool's runtime components and asks for keychain access — choose **Always Allow**.
+The app is ad-hoc signed and not notarized. On first launch, open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**. If macOS says the app "is damaged", run `xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"`. The first sign-in downloads ipatool's runtime components. Keychain access is not requested at sign-in: macOS asks once on your first search and once more the first time you open version history or download (two separate keychain items) — choose **Always Allow** both times. Search and downloads follow your account's App Store region; to get apps from another region, sign out and sign in with an account from that region.
 
 You can only download apps your account already owns or free apps you can claim; paid apps must be purchased in the App Store first. IPA Depot provides no cracking, decryption or DRM circumvention, and is not affiliated with Apple Inc. Released under the MIT License; the bundled Alimama ShuHeiTi font is licensed separately under its own legal notice.

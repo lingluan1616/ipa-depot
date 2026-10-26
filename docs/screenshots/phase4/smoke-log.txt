@@ -1,0 +1,19 @@
+# 阶段四 Debug 冒烟日志（2026-10-27）
+# 运行：IPADEPOT_IPATOOL_PATH=build/smoke-tools/ipatool（假 ipatool：仅 --version 转发给 /opt/homebrew/bin/ipatool；download 第一次写 3,000,000 字节 .tmp 后以 unexpected EOF 退出 1，第二次追加 1,000,000 字节后 sleep；其余子命令一律拒绝）
+#       IPADEPOT_DATA_ROOT=build/smoke-data，启动参数 -hasCompletedFirstLogin NO -downloadDirectory build/smoke-downloads（参数域，不写偏好）
+
+## p4LoginIntro
+[3:36:25] mode=p4LoginIntro hasCompletedFirstLogin=false → 截图 p4-01-login-intro(-sheet) → done；ipatool 调用 0 次
+
+## p4Fail
+[3:36:48] rows after failure: 谜底黑胶=失败：网络连接失败，无法访问 Apple 服务器。……可能无法直连。 retry=true raw=3:35AM ERR error="Get \"https://iosapps.itunes.apple.com/itunes-assets/x.ipa\": unexpected EOF" success=false output=谜底黑胶_3.8.5.ipa
+退出后 queue.json 含该条目及 failure{kind=networkUnreachable,message=<中文>,raw=<原文>}；.tmp 3,000,000 字节保留；无残留进程
+
+## p4Restore
+[3:37:00] rows after relaunch: 谜底黑胶=已暂停 · 上次失败：网络连接失败……可能无法直连。 retry=true raw=<同上> output=谜底黑胶_3.8.5.ipa（重启后未自动开始）
+[3:37:02] rows after retry: 谜底黑胶=正在下载 retry=false raw=- output=谜底黑胶_3.8.5.ipa
+退出后 .tmp 4,000,000 字节（续写在同一文件）；queue.json 仍含该条目，failure 已清除；无残留 sleep 进程
+
+## 假 ipatool 调用记录（calls.log）
+03:36:45 download -i 1606306441 --external-version-id 893783327 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-downloads/谜底黑胶_3.8.5.ipa --format json
+03:37:00 download -i 1606306441 --external-version-id 893783327 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-downloads/谜底黑胶_3.8.5.ipa --format json

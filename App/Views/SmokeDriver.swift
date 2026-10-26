@@ -99,7 +99,10 @@ enum SmokeDriver {
     /// - `firstLaunch`：首次启动标志为假 → 未登录、搜索先引导登录、准备页、设置页 ipatool 版本；
     /// - `signedIn`：配合启动参数 `-hasCompletedFirstLogin YES`（参数域，不写偏好）→ 启动查询账号；
     /// - `queueAdd`：加入两个下载任务（需配合只 sleep 的假 ipatool，不真正下载），然后退出；
-    /// - `queueRestore`：重新启动后查看恢复的队列。
+    /// - `queueRestore`：重新启动后查看恢复的队列；
+    /// - `p4LoginIntro`：只打开登录准备页截图（不登录）；
+    /// - `p4Fail`：加入一个下载任务，配合「第一次 download 即失败」的假 ipatool，查看失败态，然后退出；
+    /// - `p4Restore`：重启后查看恢复的失败任务（暂停 + 上次失败原因），点重试（假 ipatool 第二次只 sleep），然后退出。
     private static func runPhase3(mode: String, model: AppModel, dir: URL, note: (String) -> Void) async {
         func describe(_ state: AppModel.AccountState) -> String {
             switch state {
@@ -155,9 +158,43 @@ enum SmokeDriver {
             await sleep(2.0)
             note("rows after relaunch: \(model.downloads.activeRows.map { "\($0.context.name)=\($0.statusText) canResume=\($0.canResume)" })")
             capture("p3-07-queue-restored", dir: dir)
+        case "p4LoginIntro":
+            model.beginLogin()
+            await sleep(1.5)
+            capture("p4-01-login-intro", dir: dir)
+            model.dismissLogin()
+            await sleep(0.5)
+        case "p4Fail":
+            let app = AppSummary(id: 1606306441, bundleID: "", name: "谜底黑胶", version: "3.8.5", price: 0, platforms: ["iphone"])
+            await model.downloads.enqueue(DownloadContext(app: app, platform: .iphone, externalVersionID: "893783327",
+                                                          versionLabel: "3.8.5"))
+            model.page = .downloads
+            await wait(timeout: 20) { model.downloads.activeRows.first?.isFailed == true }
+            await sleep(1.5)
+            note("rows after failure: \(describeRows(model))")
+            capture("p4-02-failed", dir: dir)
+        case "p4Restore":
+            model.page = .downloads
+            await wait(timeout: 10) { !model.downloads.activeRows.isEmpty }
+            await sleep(1.5)
+            note("rows after relaunch: \(describeRows(model))")
+            capture("p4-03-restored", dir: dir)
+            if let id = model.downloads.activeRows.first?.id {
+                model.downloads.resume(id)
+                await wait(timeout: 10) { model.downloads.activeRows.first?.status == .running }
+                await sleep(2.0)
+                note("rows after retry: \(describeRows(model))")
+                capture("p4-04-retrying", dir: dir)
+            }
         default:
             note("unknown mode")
         }
+    }
+
+    private static func describeRows(_ model: AppModel) -> String {
+        model.downloads.activeRows.map {
+            "\($0.context.name)=\($0.statusText) retry=\($0.isRetry) raw=\($0.errorRaw ?? "-") output=\($0.output.lastPathComponent)"
+        }.joined(separator: " | ")
     }
 
     private static func wait(timeout: TimeInterval, _ condition: () -> Bool) async {

@@ -177,6 +177,7 @@ final class FakeDownloadTask: DownloadTasking, @unchecked Sendable {
     let request: DownloadRequest
     private let lock = NSLock()
     private var continuation: CheckedContinuation<DownloadOutcome, Never>?
+    private var handler: (@Sendable (DownloadEvent) -> Void)?
 
     init(request: DownloadRequest) { self.request = request }
 
@@ -184,9 +185,15 @@ final class FakeDownloadTask: DownloadTasking, @unchecked Sendable {
 
     func start(onEvent: @escaping @Sendable (DownloadEvent) -> Void) async -> DownloadOutcome {
         await withCheckedContinuation { c in
-            lock.withLock { continuation = c }
+            lock.withLock {
+                continuation = c
+                handler = onEvent
+            }
         }
     }
+
+    /// 向队列发一个事件（如进度）。
+    func emit(_ event: DownloadEvent) { lock.withLock { handler }?(event) }
 
     func finish(_ outcome: DownloadOutcome) {
         let c: CheckedContinuation<DownloadOutcome, Never>? = lock.withLock {

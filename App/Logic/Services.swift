@@ -39,8 +39,9 @@ protocol DownloadQueueing: Sendable {
     func remove(_ id: UUID) async
     func removeCompleted() async
     func updates() async -> AsyncStream<[DownloadQueueItem]>
-    /// 放回上次保存的任务（`.paused`，不自动开始）。
-    func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?, addedAt: Date) async
+    /// 放回上次保存的任务（`.paused`，不自动开始；`lastFailure` 为上次失败的原因）。
+    func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?, lastFailure: IpatoolError?,
+                 addedAt: Date) async
     /// App 退出时同步终止正在运行的下载子进程。
     func terminateRunningTasks()
 }

@@ -42,8 +42,11 @@ private struct IntroStep: View {
                           title: "首次登录需要准备组件",
                           detail: "ipatool 第一次登录时会下载运行所需的组件，可能需要几分钟，请保持网络畅通。")
                 NoticeRow(symbol: "key",
-                          title: "钥匙串授权请选「始终允许」",
-                          detail: "第一次访问钥匙串时，系统会弹出授权框并要求输入这台 Mac 的登录密码，请选择「始终允许」。")
+                          title: "钥匙串授权会弹两次，都选「始终允许」",
+                          detail: "授权框不在登录时出现：登录成功后第一次搜索会弹一次，第一次查看历史版本或下载时再弹一次（两条不同的钥匙串记录），都要输入这台 Mac 的登录密码。两次都选「始终允许」后不再询问。")
+                NoticeRow(symbol: "globe.asia.australia",
+                          title: "商店地区跟随账号",
+                          detail: "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，需登出后换该地区的账号登录。")
             }
 
             KeychainPromptIllustration()

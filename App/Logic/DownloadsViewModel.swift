@@ -54,6 +54,8 @@ struct DownloadRow: Identifiable, Equatable {
     let progress: DownloadProgress?
     let lastLog: String?
     let output: URL
+    /// 最近一次失败的原因（失败中，或从上次失败恢复为暂停时）；重试后清除。
+    var lastFailure: IpatoolError? = nil
 
     var fraction: Double? {
         if case .completed = status { return 1 }
@@ -72,7 +74,8 @@ struct DownloadRow: Identifiable, Equatable {
     }
 
     var percentText: String? {
-        guard status == .running || status == .paused || status == .stopping, let fraction = progress?.fraction else { return nil }
+        guard status == .running || status == .paused || status == .stopping || isFailed,
+              let fraction = progress?.fraction else { return nil }
         return "\(Int((fraction * 100).rounded(.down)))%"
     }
 
@@ -88,17 +91,28 @@ struct DownloadRow: Identifiable, Equatable {
             if progress == nil { return lastLog.map(Self.describe(log:)) ?? String(localized: "正在开始…") }
             return String(localized: "正在下载")
         case .stopping: return String(localized: "正在停止…")
-        case .paused: return String(localized: "已暂停")
+        case .paused:
+            if let failure = lastFailure { return String(localized: "已暂停 · 上次失败：\(failure.message)") }
+            return String(localized: "已暂停")
         case .verifying: return String(localized: "正在校验安装包")
         case .completed: return String(localized: "已完成")
-        case .failed(let error): return error.message
+        case .failed(let error): return String(localized: "失败：\(error.message)")
         }
     }
 
     var errorRaw: String? {
         if case .failed(let error) = status, !error.raw.isEmpty { return error.raw }
+        if status == .paused, let raw = lastFailure?.raw, !raw.isEmpty { return raw }
         return nil
     }
+
+    var isFailed: Bool {
+        if case .failed = status { return true }
+        return false
+    }
+
+    /// 「继续」按钮显示为「重试」：失败中，或从上次失败恢复的暂停任务。
+    var isRetry: Bool { isFailed || (status == .paused && lastFailure != nil) }
 
     var fileURL: URL? {
         if case .completed(let result) = status { return result.fileURL }
@@ -162,7 +176,7 @@ final class DownloadsViewModel {
         items.compactMap { item in
             guard let context = contexts[item.id] else { return nil }
             return DownloadRow(id: item.id, context: context, status: item.status, progress: item.progress,
-                               lastLog: item.lastLog, output: item.request.output)
+                               lastLog: item.lastLog, output: item.request.output, lastFailure: item.lastFailure)
         }
     }
 
@@ -183,7 +197,8 @@ final class DownloadsViewModel {
         let progresses = restored.map { $0.restoredProgress() }
         observeTask = Task { [weak self] in
             for (entry, progress) in zip(restored, progresses) {
-                await queue.restore(entry.request, id: entry.id, progress: progress, addedAt: entry.addedAt)
+                await queue.restore(entry.request, id: entry.id, progress: progress,
+                                    lastFailure: entry.failure?.error, addedAt: entry.addedAt)
             }
             for await snapshot in await queue.updates() {
                 self?.apply(snapshot)
@@ -248,12 +263,15 @@ final class DownloadsViewModel {
 
     // MARK: - 跨启动保存
 
-    /// 当前应保存的条目：排队中、进行中（含停止中 / 校验中）、已暂停。完成与失败的不保存。
+    /// 当前应保存的条目：排队中、进行中（含停止中 / 校验中）、已暂停、失败（连同失败原因，重启后恢复为暂停）。
+    /// 完成的不保存；「需要许可」的失败走领取许可提示，不保存（保持原有处理）。
     func persistableEntries(_ snapshot: [DownloadQueueItem]) -> [PersistedDownload] {
         snapshot.compactMap { item in
             switch item.status {
             case .queued, .running, .stopping, .verifying, .paused: break
-            case .completed, .failed: return nil
+            case .failed(let error) where error.kind == .licenseRequired: return nil
+            case .failed: break
+            case .completed: return nil
             }
             guard let context = contexts[item.id] else { return nil }
             return PersistedDownload(
@@ -261,7 +279,8 @@ final class DownloadsViewModel {
                 versionLabel: context.versionLabel, externalVersionID: item.request.externalVersionID,
                 purchase: item.request.purchase, outputPath: item.request.output.path,
                 platform: item.request.platform, displayPlatform: context.platform.rawValue,
-                isFree: context.isFree, totalBytes: item.progress?.total, addedAt: item.addedAt)
+                isFree: context.isFree, totalBytes: item.progress?.total, addedAt: item.addedAt,
+                failure: item.lastFailure.map(PersistedFailure.init))
         }
     }
 

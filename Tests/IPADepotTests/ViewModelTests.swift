@@ -340,7 +340,7 @@ final class DownloadsViewModelTests: VMTestCase {
         XCTAssertEqual(verifying.statusText, "正在校验安装包")
         let failed = DownloadRow(id: UUID(), context: ctx, status: .failed(IpatoolError(kind: .appNotFound, raw: "app not found")),
                                  progress: nil, lastLog: nil, output: url)
-        XCTAssertEqual(failed.statusText, IpatoolError(kind: .appNotFound).message)
+        XCTAssertEqual(failed.statusText, "失败：\(IpatoolError(kind: .appNotFound).message)")
         XCTAssertEqual(failed.errorRaw, "app not found")
         XCTAssertTrue(failed.canResume)
         XCTAssertEqual(ctx.versionLabel, "3.8.5", "最新版用搜索结果里的版本号命名")

@@ -76,7 +76,7 @@ private struct DownloadRowView: View {
                 progress
                 HStack(spacing: 8) {
                     Text(row.statusText)
-                        .foregroundStyle(isFailed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+                        .foregroundStyle(row.isFailed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                         .lineLimit(showingRaw ? nil : 2)
                     if let raw = row.errorRaw {
                         Button(showingRaw ? "收起原始错误" : "查看原始错误") { showingRaw.toggle() }
@@ -108,11 +108,6 @@ private struct DownloadRowView: View {
         .padding(.vertical, 5)
     }
 
-    private var isFailed: Bool {
-        if case .failed = row.status { return true }
-        return false
-    }
-
     @ViewBuilder
     private var progress: some View {
         switch row.status {
@@ -124,9 +119,12 @@ private struct DownloadRowView: View {
             }
         case .paused:
             ProgressView(value: row.fraction ?? 0).tint(.secondary)
+        case .failed:
+            // 失败的任务保留已下载部分（`.tmp`），重试时续传
+            ProgressView(value: row.fraction ?? 0).tint(.red)
         case .queued:
             ProgressView(value: 0)
-        case .completed, .failed:
+        case .completed:
             EmptyView()
         }
     }
@@ -141,7 +139,7 @@ private struct DownloadRowView: View {
                 iconButton("从列表移除", symbol: "xmark.circle") { model.downloads.remove(row.id) }
             } else {
                 if row.canResume {
-                    iconButton(isFailed ? "重试" : "继续", symbol: isFailed ? "arrow.clockwise.circle" : "play.circle") {
+                    iconButton(row.isRetry ? "重试" : "继续", symbol: row.isRetry ? "arrow.clockwise.circle" : "play.circle") {
                         model.downloads.resume(row.id)
                     }
                 } else if row.canPause {

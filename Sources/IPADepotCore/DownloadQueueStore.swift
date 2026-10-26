@@ -1,6 +1,6 @@
 import Foundation
 
-/// 跨启动保存的一条下载任务（排队中 / 已暂停 / 退出时仍在进行的任务，恢复时一律为「已暂停」）。
+/// 跨启动保存的一条下载任务（排队中 / 已暂停 / 失败 / 退出时仍在进行的任务，恢复时一律为「已暂停」）。
 public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
     public var id: UUID
     public var appID: Int64
@@ -23,10 +23,13 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
     /// 已知的安装包总大小（字节）；未知为 nil。
     public var totalBytes: Int64?
     public var addedAt: Date
+    /// 上次失败的原因（没有失败为 nil）；恢复后仍显示，重试时清除。旧文件没有此字段时为 nil。
+    public var failure: PersistedFailure?
 
     public init(id: UUID, appID: Int64, name: String, bundleID: String, versionLabel: String,
                 externalVersionID: String?, purchase: Bool, outputPath: String, platform: String?,
-                displayPlatform: String, isFree: Bool, totalBytes: Int64?, addedAt: Date) {
+                displayPlatform: String, isFree: Bool, totalBytes: Int64?, addedAt: Date,
+                failure: PersistedFailure? = nil) {
         self.id = id
         self.appID = appID
         self.name = name
@@ -40,6 +43,7 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
         self.isFree = isFree
         self.totalBytes = totalBytes
         self.addedAt = addedAt
+        self.failure = failure
     }
 
     /// 重新下载用的请求（与当初入队时同参数）。
@@ -55,6 +59,28 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
         let size = bytes ?? 0
         let fraction = totalBytes.flatMap { $0 > 0 ? min(Double(size) / Double($0), 1) : nil }
         return DownloadProgress(fraction: fraction, bytes: size, total: totalBytes, bytesPerSecond: nil, source: .tempFile)
+    }
+}
+
+/// 保存下来的失败原因：中文文案 `message`（写入时的文本，便于直接阅读文件）+ 类别与 ipatool 原始英文（恢复「查看原始错误」用）。
+public struct PersistedFailure: Sendable, Codable, Equatable {
+    /// `IpatoolErrorKind` 的原始值；以字符串保存，未来出现未知类别时按 `.unknown` 处理而不是整份文件解析失败。
+    public var kind: String
+    public var message: String
+    public var raw: String
+
+    public init(kind: String, message: String, raw: String) {
+        self.kind = kind
+        self.message = message
+        self.raw = raw
+    }
+
+    public init(_ error: IpatoolError) {
+        self.init(kind: error.kind.rawValue, message: error.message, raw: error.raw)
+    }
+
+    public var error: IpatoolError {
+        IpatoolError(kind: IpatoolErrorKind(rawValue: kind) ?? .unknown, raw: raw)
     }
 }
 

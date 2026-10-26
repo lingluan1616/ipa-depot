@@ -44,15 +44,19 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
     public internal(set) var progress: DownloadProgress?
     /// 最近一条非进度日志（如「首次准备组件」）。
     public internal(set) var lastLog: String?
+    /// 最近一次失败的原因：失败时记下，跨启动恢复（状态为 `.paused`）时保留，用户重试（`resume`）时清除。
+    public internal(set) var lastFailure: IpatoolError?
     public let addedAt: Date
 
     public init(id: UUID, request: DownloadRequest, status: DownloadItemStatus = .queued,
-                progress: DownloadProgress? = nil, lastLog: String? = nil, addedAt: Date = Date()) {
+                progress: DownloadProgress? = nil, lastLog: String? = nil, lastFailure: IpatoolError? = nil,
+                addedAt: Date = Date()) {
         self.id = id
         self.request = request
         self.status = status
         self.progress = progress
         self.lastLog = lastLog
+        self.lastFailure = lastFailure
         self.addedAt = addedAt
     }
 }
@@ -61,10 +65,10 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
 ///
 /// - `add`：入队（排在末尾），空闲时立即开始；
 /// - `pause`：运行中 → 终止子进程，变为 `.paused`；排队中 → 直接 `.paused`（跳过）；
-/// - `resume`：`.paused` / `.failed` → 重新排队（ipatool 依靠 `.tmp` 续传）；
+/// - `resume`：`.paused` / `.failed` → 重新排队（同参数重跑，ipatool 依靠 `.tmp` 续传）；
 /// - `cancel`：停止并**从队列移除**，同时删除 `<目标>.tmp` 残留；
 /// - `remove`：移除已完成 / 失败 / 暂停的条目（运行中的请用 `cancel`）；
-/// - `restore`：把上次退出时保存的任务以 `.paused` 放回队列（不自动开始）；
+/// - `restore`：把上次退出时保存的任务以 `.paused` 放回队列（不自动开始；上次失败的保留失败原因）；
 /// - `terminateRunningTasks()`：App 退出时同步终止正在运行的子进程（不等待 actor）；
 /// - `updates()`：订阅快照流，订阅时立即收到当前快照。
 public actor DownloadQueue {
@@ -125,10 +129,12 @@ public actor DownloadQueue {
     }
 
     /// 恢复上次保存的任务：状态为 `.paused`，等用户点「继续」再用同参数重跑（ipatool 依靠 `.tmp` 续传）。
-    /// 已存在同 ID 的条目时忽略。
-    public func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?, addedAt: Date = Date()) {
+    /// `lastFailure` 为上次退出前的失败原因（没有失败为 nil）。已存在同 ID 的条目时忽略。
+    public func restore(_ request: DownloadRequest, id: UUID, progress: DownloadProgress?,
+                        lastFailure: IpatoolError? = nil, addedAt: Date = Date()) {
         guard index(of: id) == nil else { return }
-        let item = DownloadQueueItem(id: id, request: request, status: .paused, progress: progress, addedAt: addedAt)
+        let item = DownloadQueueItem(id: id, request: request, status: .paused, progress: progress,
+                                     lastFailure: lastFailure, addedAt: addedAt)
         entries.append(Entry(item: item, task: makeTask(request)))
         publish()
     }
@@ -160,6 +166,7 @@ public actor DownloadQueue {
         case .paused, .failed:
             entries[index].item.status = .queued
             entries[index].item.lastLog = nil
+            entries[index].item.lastFailure = nil
             publish()
             pump()
         default:
@@ -275,7 +282,12 @@ public actor DownloadQueue {
         case .cancelled:
             break
         case .failed(let error):
-            entries[index].item.status = error.kind == .cancelled ? .paused : .failed(error)
+            if error.kind == .cancelled {
+                entries[index].item.status = .paused
+            } else {
+                entries[index].item.status = .failed(error)
+                entries[index].item.lastFailure = error
+            }
         }
         if cancelRequested || outcome == .cancelled {
             let request = entries[index].item.request

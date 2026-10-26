@@ -291,6 +291,16 @@
         }
       }
     },
+    "商店地区跟随账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Store Region Follows Your Account"
+          }
+        }
+      }
+    },
     "图标缓存": {
       "localizations": {
         "en": {
@@ -327,6 +337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Built on majd/ipatool (MIT)"
+          }
+        }
+      }
+    },
+    "失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed: %@"
           }
         }
       }
@@ -437,6 +457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paused"
+          }
+        }
+      }
+    },
+    "已暂停 · 上次失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused · Last attempt failed: %@"
           }
         }
       }
@@ -552,6 +582,16 @@
         }
       }
     },
+    "授权框不在登录时出现：登录成功后第一次搜索会弹一次，第一次查看历史版本或下载时再弹一次（两条不同的钥匙串记录），都要输入这台 Mac 的登录密码。两次都选「始终允许」后不再询问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The prompt doesn't appear at sign-in: after signing in, macOS asks once on your first search and once more the first time you view version history or download (two separate keychain items), each time asking for this Mac's login password. Choose \"Always Allow\" both times and you won't be asked again."
+          }
+        }
+      }
+    },
     "排队中": {
       "localizations": {
         "en": {
@@ -588,6 +628,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Search by app name or keyword"
+          }
+        }
+      }
+    },
+    "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，需登出后换该地区的账号登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search and downloads use the App Store of your account's region. To get apps from another region, sign out and sign in with an account from that region."
           }
         }
       }
@@ -1195,6 +1245,7 @@
       }
     },
     "第一次访问钥匙串时，系统会弹出授权框并要求输入这台 Mac 的登录密码，请选择「始终允许」。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1444,7 +1495,18 @@
         }
       }
     },
+    "钥匙串授权会弹两次，都选「始终允许」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keychain Access Is Requested Twice — Choose \"Always Allow\""
+          }
+        }
+      }
+    },
     "钥匙串授权请选「始终允许」": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
