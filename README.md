@@ -2,7 +2,7 @@
 
 **IPA Depot 是一个 macOS 原生图形界面工具：登录你的 Apple ID，搜索 App Store，下载 App 的最新版或任意历史版本 IPA。**底层调用内置的 [ipatool](https://github.com/majd/ipatool) v2.7.0（MIT），不需要打开终端。
 
-[下载最新版](https://github.com/OWNER_PLACEHOLDER/ipa-depot/releases/latest) · 系统要求：macOS 14 Sonoma 或更新，Apple 芯片与 Intel 通用
+[下载最新版](https://github.com/lingluan1616/ipa-depot/releases/latest) · 系统要求：macOS 14 Sonoma 或更新，Apple 芯片与 Intel 通用
 
 | 搜索 | 历史版本 | 登录前的准备页 |
 |---|---|---|
@@ -24,7 +24,7 @@
 
 IPA Depot 没有 Apple 开发者签名，也没有经过 Apple 公证（这需要每年 99 美元的开发者会员）。第一次打开时 macOS 会拦一下，按下面的步骤放行一次即可，以后正常打开。
 
-1. 从 [Releases](https://github.com/OWNER_PLACEHOLDER/ipa-depot/releases/latest) 下载 `IPA-Depot-<版本>-macos-universal.dmg`（或 `.zip`）。
+1. 从 [Releases](https://github.com/lingluan1616/ipa-depot/releases/latest) 下载 `IPA-Depot-<版本>-macos-universal.dmg`（或 `.zip`）。
 2. 打开 dmg，把 **IPA Depot** 拖进「应用程序」文件夹。
 3. 在「应用程序」里双击打开 IPA Depot。系统会提示无法验证开发者，点「完成」（不要点「移到废纸篓」）。
 4. 打开 **系统设置 › 隐私与安全性**，往下拉到「安全性」一栏，会看到「已阻止打开 IPA Depot」，点 **「仍要打开」**，按提示输入 Mac 登录密码。

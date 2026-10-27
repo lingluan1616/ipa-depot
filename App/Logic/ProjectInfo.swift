@@ -5,7 +5,7 @@ import Foundation
 /// 发布前运行 `scripts/set-owner.sh <GitHub 用户名>`，脚本只改写 `repositoryOwner` 这一行和 README 里的链接。
 enum ProjectInfo {
     /// GitHub 账号名（发布前由 `scripts/set-owner.sh` 替换）。
-    static let repositoryOwner = "OWNER_PLACEHOLDER"
+    static let repositoryOwner = "lingluan1616"
     static let repositoryName = "ipa-depot"
 
     /// 未配置时的占位值（`set-owner.sh` 不会改动这一行，用于判断是否已配置）。
