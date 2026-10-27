@@ -1,8 +1,13 @@
 name: Release
 
+# 0.1.0 的发布包由本地 scripts/build-release.sh 构建、验收后手动上传；
+# 此工作流仅供手动触发（Actions 页面 Run workflow），不随标签自动运行，避免覆盖已验收的产物。
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的标签（如 v0.1.0）"
+        required: true
 
 permissions:
   contents: write
