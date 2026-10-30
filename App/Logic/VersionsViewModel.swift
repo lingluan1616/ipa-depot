@@ -187,10 +187,12 @@ final class VersionsViewModel {
         phase = .accountChanged(label)
     }
 
-    /// 下载上下文。
+    /// 下载上下文。标「最新」的那一行与「下载最新版」是同一个任务：外部版本 ID 置 nil（= 最新版），
+    /// 这样两处按钮共用同一个去重键，不会把最新版下两遍。
     func context(for row: Row?) -> DownloadContext {
-        DownloadContext(app: app, platform: platform,
-                        externalVersionID: row?.id,
-                        versionLabel: row?.metadata?.displayVersion ?? (row == nil ? app.version : nil))
+        let isLatest = row?.isLatest ?? true
+        return DownloadContext(app: app, platform: platform,
+                               externalVersionID: isLatest ? nil : row?.id,
+                               versionLabel: row?.metadata?.displayVersion ?? (isLatest ? app.version : nil))
     }
 }

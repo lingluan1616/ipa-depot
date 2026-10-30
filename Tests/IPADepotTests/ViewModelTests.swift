@@ -231,6 +231,12 @@ final class VersionsViewModelTests: VMTestCase {
         XCTAssertEqual(vm.context(for: row).versionLabel, "846770304", "版本号未加载时用外部版本 ID 命名")
         let loaded = VersionsViewModel.Row(id: "9", metadata: FakeVersions.meta("9"))
         XCTAssertEqual(vm.context(for: loaded).versionLabel, "v9")
+        // 标「最新」的行与「下载最新版」共用同一任务：外部版本 ID 置 nil，版本号优先用已加载的元数据。
+        let latestRow = VersionsViewModel.Row(id: "10", metadata: FakeVersions.meta("10"), isLatest: true)
+        XCTAssertNil(vm.context(for: latestRow).externalVersionID)
+        XCTAssertEqual(vm.context(for: latestRow).versionLabel, "v10")
+        let latestUnloaded = VersionsViewModel.Row(id: "10", metadata: nil, isLatest: true)
+        XCTAssertEqual(vm.context(for: latestUnloaded).versionLabel, "3.8.5", "最新行元数据未加载时回退到搜索结果的版本号")
     }
 
     func testOtherErrorsShowFailure() async {
