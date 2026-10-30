@@ -15,11 +15,11 @@
 - **搜索 App**：按 iPhone / iPad / Mac 平台搜索账号所在地区的 App Store，显示图标、开发者、Bundle ID、当前版本、价格与平台。
 - **浏览地区**：搜索页可以选一个地区（中国大陆 / 香港 / 台湾 / 日本 / 美国 / 韩国 / 其他自填代码），直接搜该地区 App Store 的公开目录，不用先切账号；结果标「公开目录」。查看历史版本或下载时，IPA Depot 会自动找到并切换到该地区的账号，没有的话提示添加。
 - **历史版本**：列出全部历史版本（最新在上），版本号与发布日期按需加载并缓存，任一版本都能下载。
-- **下载队列**：一次下载一个，其余排队；显示进度、大小与速度；可暂停、继续（断点续传）、取消。排队中与已暂停的任务在退出后保留，下次打开恢复为「已暂停」，点继续即可接着下载。
+- **下载队列**：同时下载数可设为 1 / 2 / 3（默认 1），其余排队；显示进度、大小与速度；可暂停、继续（断点续传）、取消。排队中与已暂停的任务在退出后保留，下次打开恢复为「已暂停」，点继续即可接着下载。
 - **领取免费 App**：免费 App 还没加入你的账号时，可以一键领取免费许可后下载。
 - **多账号与地区**：保存多个 Apple ID（不同地区），侧栏账号菜单一键切换；下载任务会记住所用账号，必要时自动切换。详见下方「多账号与地区」。
 - **下载记录**：名称、版本、大小、路径、完成时间、账号地区；文件被移走后会灰显；可在访达中显示。
-- **设置**：下载目录（默认 `~/Downloads/IPA Depot`）、缓存清理（只清本 App 的缓存）、关于与许可、检查更新（GitHub Releases）。
+- **设置**：下载目录（默认 `~/Downloads/IPA Depot`）、同时下载数（1 / 2 / 3）、缓存清理（只清本 App 的缓存）、关于与许可、检查更新（GitHub Releases）。
 - 简体中文界面，附英文界面（跟随系统语言）。
 
 ## 安装与首次打开
@@ -53,7 +53,7 @@ xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"
 - **历史版本**：在搜索结果里点「历史版本…」，列表最新的在上面；版本号与日期会随着滚动陆续加载，点任一行的「下载」即可。
 - **下载**：点「下载最新版」或历史版本的「下载」后，任务进入「下载」页。可以暂停、继续、取消；完成后点「在访达中显示」找到 IPA 文件。文件名格式为 `名称_版本.ipa`，同名时自动加序号。
 - **记录**：「记录」页保存已完成的下载，移除记录不会删除文件。
-- **设置**：修改下载目录、查看与清理缓存、查看版本与许可、检查更新。
+- **设置**：修改下载目录、查看与清理缓存、查看版本与许可、检查更新。「下载 › 同时下载数」可选 1 / 2 / 3（默认 1），改动立即生效；调小不会打断正在进行的下载，只是之后不再补位。同时下载只对同一个账号生效，见常见问题。
 
 ## 多账号与地区
 
@@ -105,6 +105,9 @@ ipatool 的规则是：`~/.ipatool` 存在时优先使用它。IPA Depot 内置�
 **下载中断了怎么办**
 在「下载」页点「继续」，会从已下载的部分接着下（未完成的数据保存在下载目录里的 `<文件名>.ipa.tmp`）。因网络中断等原因失败的任务会留在列表里，显示「失败：原因」，点「重试」同样从断点续传。退出 App 时未完成的任务（包括失败的）会保留，下次打开恢复为「已暂停」，失败的还会注明上次失败的原因。点「取消」会删除这个未完成的文件。
 
+**同时下载数设成 3，为什么有的任务还在排队**
+ipatool 只有一个登录槽位和一份 Cookie，同一时刻只能登录一个账号，所以**同时下载只对同一个账号生效**：正在下载的都是当前账号的任务时，空出来的位置只会补上当前账号（或没有账号归属的旧任务）的排队任务；属于其他账号的任务会一直排队，等当前账号的任务全部结束后，IPA Depot 才切换账号并开始它，切换期间不会开始别的任务。另外，同一账号的多个下载会各自刷新 ipatool 的 Cookie 文件（`state/ipatool/cookies`）——ipatool 写这个文件时会加文件锁并先合并磁盘上的内容，写入的是同一个账号的同一份会话，互不影响。
+
 **提示「找不到钥匙串」**
 你的 Mac 用户可能没有默认钥匙串。打开「钥匙串访问」，确认「登录」钥匙串存在并设为默认后重试。
 
@@ -150,6 +153,6 @@ IPA Depot 以 [MIT 许可](LICENSE) 发布。内置的 ipatool 为 MIT 许可；
 
 **IPA Depot** is a native macOS app for signing in with your Apple ID, searching the App Store, and downloading the latest or any previous version of an app as an IPA. It wraps the bundled [ipatool](https://github.com/majd/ipatool) 2.7.0 (MIT) — no Terminal required. Requires macOS 14 or later (universal: Apple silicon and Intel).
 
-The app is ad-hoc signed and not notarized. On first launch, open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**. If macOS says the app "is damaged", run `xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"`. The first sign-in downloads ipatool's runtime components. Keychain access is not requested at sign-in: macOS asks once on your first search and once more the first time you open version history or download (two separate keychain items) — choose **Always Allow** both times. Search and downloads follow your account's App Store region, and the region can only change by switching accounts. Since 0.2.0 you can save several Apple IDs and switch between them from the account menu at the bottom of the sidebar: switching signs in again (the current session is saved, signed out, and the target account signs in with its saved password), the first switch to an account may ask for a 6-digit verification code, and passwords are stored only in this Mac's login keychain (item `app.ipadepot.mac.accounts`, not synced to iCloud). After updating IPA Depot, macOS may ask once more for access to that keychain item — choose **Always Allow**. Downloads remember their account and switch automatically before starting. **Browse Region** on the search page searches another region's public App Store catalog (Apple's iTunes Search API, no sign-in needed); results are tagged "Public Catalog", and opening versions or downloading one switches to a saved account from that region (or offers to add one). Verification codes are pushed to all trusted devices of the Apple ID, including Apple Watch; the ipatool sign-in channel has no "send by SMS" option, unlike Apple's web sign-in. If `~/.ipatool` exists (e.g. after using Homebrew ipatool in Terminal), ipatool prefers it, so avoid using Terminal ipatool alongside IPA Depot.
+The app is ad-hoc signed and not notarized. On first launch, open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**. If macOS says the app "is damaged", run `xattr -dr com.apple.quarantine "/Applications/IPA Depot.app"`. The first sign-in downloads ipatool's runtime components. Keychain access is not requested at sign-in: macOS asks once on your first search and once more the first time you open version history or download (two separate keychain items) — choose **Always Allow** both times. Search and downloads follow your account's App Store region, and the region can only change by switching accounts. Since 0.2.0 you can save several Apple IDs and switch between them from the account menu at the bottom of the sidebar: switching signs in again (the current session is saved, signed out, and the target account signs in with its saved password), the first switch to an account may ask for a 6-digit verification code, and passwords are stored only in this Mac's login keychain (item `app.ipadepot.mac.accounts`, not synced to iCloud). After updating IPA Depot, macOS may ask once more for access to that keychain item — choose **Always Allow**. Downloads remember their account and switch automatically before starting. **Browse Region** on the search page searches another region's public App Store catalog (Apple's iTunes Search API, no sign-in needed); results are tagged "Public Catalog", and opening versions or downloading one switches to a saved account from that region (or offers to add one). Verification codes are pushed to all trusted devices of the Apple ID, including Apple Watch; the ipatool sign-in channel has no "send by SMS" option, unlike Apple's web sign-in. If `~/.ipatool` exists (e.g. after using Homebrew ipatool in Terminal), ipatool prefers it, so avoid using Terminal ipatool alongside IPA Depot. **Settings › Downloads › Simultaneous downloads** lets 1, 2 or 3 downloads run at once (default 1); changes apply immediately, and lowering the number never interrupts downloads in progress. Simultaneous downloads only apply within one account, because ipatool has a single sign-in slot: tasks for another account wait until all of the current account's tasks finish, then IPA Depot switches accounts and starts them.
 
 You can only download apps your account already owns or free apps you can claim; paid apps must be purchased in the App Store first. IPA Depot provides no cracking, decryption or DRM circumvention, and is not affiliated with Apple Inc. Released under the MIT License; the bundled Alimama ShuHeiTi font is licensed separately under its own legal notice.

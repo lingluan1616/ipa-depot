@@ -1,0 +1,11 @@
+[2:38:48] brand font loaded: true
+[2:38:48] mode=p7Concurrent hasCompletedFirstLogin=false
+[2:38:52] after jp login: active=jp@example.test
+[2:38:54] settings maxConcurrent=3
+[2:38:57] limit 3: running=3 rows=Alpha Player[日本]=正在下载 | Beta Notes[日本]=正在下载 | Gamma Maps[日本]=正在下载 | Delta Camera[日本]=排队中
+[2:38:58] lowered to 1 while running: running=3 rows=Alpha Player[日本]=正在下载 | Beta Notes[日本]=正在下载 | Gamma Maps[日本]=正在下载 | Delta Camera[日本]=排队中
+[2:39:02] limit 1: running=1 rows=Echo Radio[日本]=正在下载 | Foxtrot Mail[日本]=排队中 | Golf Weather[日本]=排队中
+[2:39:08] after us add: active=us@example.test
+[2:39:11] mixed accounts: running=2 rows=Hotel Stream[美国]=正在下载 | Juliet Bank[美国]=正在下载 | India Manga[日本]=排队中
+[2:39:12] final rows=0 maxConcurrent=3
+[2:39:12] done

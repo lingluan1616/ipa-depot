@@ -1,0 +1,19 @@
+02:38:50 auth login --format json
+02:38:52 login jp@example.test cookies-before=
+02:38:53 --version
+02:38:54 download -i 7001 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Alpha Player_1.1.0.ipa --format json
+02:38:54 download-as jp@example.test id=7001 pid=32907 start
+02:38:54 download -i 7002 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Beta Notes_1.2.0.ipa --format json
+02:38:54 download-as jp@example.test id=7002 pid=32915 start
+02:38:54 download -i 7003 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Gamma Maps_1.3.0.ipa --format json
+02:38:54 download-as jp@example.test id=7003 pid=32941 start
+02:38:59 download -i 7011 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Echo Radio_1.1.0.ipa --format json
+02:38:59 download-as jp@example.test id=7011 pid=33124 start
+02:39:04 auth revoke --format json --non-interactive
+02:39:04 revoke cookies=jp@example.test-trusted 
+02:39:04 auth login --format json
+02:39:06 login us@example.test cookies-before=
+02:39:08 download -i 7021 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Hotel Stream_1.1.0.ipa --format json
+02:39:08 download-as us@example.test id=7021 pid=33205 start
+02:39:08 download -i 7023 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p7-downloads/Juliet Bank_1.3.0.ipa --format json
+02:39:08 download-as us@example.test id=7023 pid=33221 start
