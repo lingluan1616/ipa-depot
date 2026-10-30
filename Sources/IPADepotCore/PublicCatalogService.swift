@@ -3,10 +3,10 @@ import Foundation
 /// 用 Apple 公开的 iTunes Search API 按地区搜索 App（不走 ipatool、不需要登录）：
 /// `https://itunes.apple.com/search?term=<q>&country=<cc>&entity=<software|iPadSoftware|macSoftware>&limit=<n>`。
 /// 结果映射为 `AppSummary`（`catalogCountry` 为所搜国家代码，另带图标地址与开发者名）。
-/// 10 秒超时；网络 / HTTP / 解析错误一律映射为网络错误（`.networkUnreachable`，原始描述放在 `raw`）。
+/// 20 秒超时（本机实测单次 6–12 秒）；网络 / HTTP / 解析错误一律映射为网络错误（`.networkUnreachable`，原始描述放在 `raw`）。
 /// 限速：同一组参数（关键词 + 地区 + 平台 + 数量）1 秒内不重复请求，直接复用上一次（或进行中）的结果。
 public actor PublicCatalogService {
-    public static let timeout: TimeInterval = 10
+    public static let timeout: TimeInterval = 20
     public static let minimumInterval: TimeInterval = 1
 
     private let http: HTTPFetching

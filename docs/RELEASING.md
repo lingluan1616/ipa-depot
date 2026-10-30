@@ -46,6 +46,13 @@ hdiutil verify IPA-Depot-*.dmg
 
 `spctl -a -vv` 会显示 rejected，这是未公证的 ad-hoc 包的正常结果。
 
+启动冒烟（`open` Release 包验证能起能退）必须隔离家目录，否则会和本机真实的 `accounts.json` 对账、把激活账号写空：
+
+```sh
+mkdir -p /tmp/ipadepot-smoke-home
+CFFIXED_USER_HOME=/tmp/ipadepot-smoke-home "build/release/IPA Depot.app/Contents/MacOS/IPA Depot" -hasCompletedFirstLogin NO &
+```
+
 然后模拟用户安装：打开 dmg → 拖到「应用程序」→ 按 README「安装与首次打开」走一遍（仍要打开 → 准备页 → 登录 → 钥匙串「始终允许」→ 搜索 → 历史版本 → 下载一个小的免费 App）。
 
 ## 4. 打标签并发布（推荐：GitHub Actions）

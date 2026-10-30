@@ -139,6 +139,11 @@ final class AppModel {
                 accounts.regionPrompt = adoption.record
             }
             accounts.reload()
+            // 账号表里只有一个账号时，没有归属的旧记录 / 队列条目只可能属于它：补盖章（幂等）。
+            // 覆盖已装过 0.2.0 早期包、迁移时还没有盖章逻辑的安装。
+            if accounts.accounts.count == 1, let only = accounts.accounts.first {
+                stampLegacyRecords(accountID: only.id, regionLabel: only.regionLabel.rawValue)
+            }
             accountState = .signedIn(info)
         } catch let error as IpatoolError where error.kind == .notLoggedIn {
             await services.switcher.reconcile(signedIn: nil)
@@ -152,9 +157,10 @@ final class AppModel {
     }
 
     /// 升级迁移：旧 `history.json` / `queue.json` 中没有账号归属的条目统一盖上迁移账号 id（幂等），并刷新记录页。
-    private func stampLegacyRecords(accountID: UUID) {
+    private func stampLegacyRecords(accountID: UUID, regionLabel: String? = nil) {
         let queueStore = services.queueStore ?? DownloadQueueStore(fileURL: services.paths.queueFile)
-        _ = try? LegacyAccountStamp.stamp(accountID: accountID, history: services.historyStore, queue: queueStore)
+        _ = try? LegacyAccountStamp.stamp(accountID: accountID, regionLabel: regionLabel,
+                                          history: services.historyStore, queue: queueStore)
         history.reload()
     }
 
