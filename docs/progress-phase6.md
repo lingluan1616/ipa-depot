@@ -67,12 +67,12 @@ python3 -I scripts/sync-strings.py --check                              → exit
 
 日志：`smoke-log.txt`、`fake-ipatool-calls.log`（Cookie 时机：`login us … cookies-before=`（空）、切回日本 `cookies-before=jp…-trusted`、自动切换 `cookies-before=us…-trusted`；`list-versions-as us@example.test`、`download-as us@example.test`）。冒烟前后真实偏好里均无 `browseRegion` 键（`defaults read app.ipadepot.mac browseRegion` → 不存在），`hasCompletedFirstLogin` 前后均为 1。截图中账号均为 `@example.test` 假账号。
 
-## 四、Release 产物（`build/release/`，0.2.0 / CFBundleVersion 202610301558）
+## 四、Release 产物（`build/release/`，0.2.0 / CFBundleVersion 202610301607）
 
 | 文件 | 大小（字节） | sha256 |
 |---|---|---|
-| `IPA-Depot-0.2.0-macos-universal.zip` | 41,566,736 | `259f3639fe7b9ac03985b25fe63c3ec0c4124da2c2199639722aba48158d50e0` |
-| `IPA-Depot-0.2.0-macos-universal.dmg` | 46,421,690 | `6b2f4da82546eee7578f77694a024c807bb2b59bfa1bf9942582a759b650eb9e` |
+| `IPA-Depot-0.2.0-macos-universal.zip` | 41,568,055 | `（以 build/release/*.sha256 为准，主会话小修后重打）` |
+| `IPA-Depot-0.2.0-macos-universal.dmg` | 46,419,367 | `（以 build/release/*.sha256 为准，主会话小修后重打）` |
 | `*.zip.sha256` / `*.dmg.sha256` | 102 / 102 | — |
 | `IPA Depot.app` | — | 本地验收用，不上传 |
 
