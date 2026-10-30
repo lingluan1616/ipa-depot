@@ -3,18 +3,7 @@ import IPADepotCore
 
 // MARK: - 服务协议（视图模型只依赖这些协议，便于测试替身注入）
 
-protocol AuthServicing: Sendable {
-    func info() async throws -> AccountInfo
-    func revoke() async throws
-}
-
-/// 与 `LoginSession` 同形的登录会话。
-protocol LoginSessioning: AnyObject, Sendable {
-    func login(email: String, password: String,
-               onEvent: @escaping @Sendable (LoginEvent) -> Void) async -> Result<AccountInfo, IpatoolError>
-    func submitTwoFactorCode(_ code: String) throws
-    func cancel()
-}
+// `AuthServicing` 与 `LoginSessioning` 定义在 IPADepotCore（账号切换器也要用）。
 
 protocol SearchServicing: Sendable {
     func search(_ term: String, limit: Int, platform: String) async throws -> [AppSummary]
@@ -44,6 +33,8 @@ protocol DownloadQueueing: Sendable {
                  addedAt: Date) async
     /// App 退出时同步终止正在运行的下载子进程。
     func terminateRunningTasks()
+    /// 下载前的账号切换（任务属于另一个账号时先切换）。
+    func setAccountSwitching(_ switching: DownloadAccountSwitching?) async
 }
 
 protocol UpdateChecking: Sendable {
@@ -57,8 +48,6 @@ protocol KeyValueStoring: AnyObject {
     func set(_ value: Any?, forKey defaultName: String)
 }
 
-extension AuthService: AuthServicing {}
-extension LoginSession: LoginSessioning {}
 extension SearchService: SearchServicing {}
 extension VersionService: VersionServicing {}
 extension AppLookupService: AppLookupProviding {}
@@ -85,6 +74,10 @@ struct AppServices {
     var makeUpdateChecker: @Sendable (String) -> UpdateChecking
     /// 启动时就能确定的问题（如找不到 ipatool）。
     var setupError: IpatoolError?
+    /// 当前激活账号 id（版本缓存与下载队列共用）。
+    var currentAccount: CurrentAccount
+    /// 多账号：账号表、钥匙串密码、每账号 Cookie 与切换流程。
+    var switcher: AccountSwitcher
 
     static func live() -> AppServices {
         let paths = AppPaths.default
@@ -101,12 +94,30 @@ struct AppServices {
             executable = URL(fileURLWithPath: "/nonexistent/ipatool")
         }
         let runner = IpatoolRunner(executableURL: executable, paths: paths)
+        let auth = AuthService(runner: runner)
+        let makeLoginSession: @Sendable () -> LoginSessioning = { LoginSession(runner: runner) }
+        let currentAccount = CurrentAccount()
+        var vault: CredentialVault = KeychainCredentialVault()
+        var cookies = CookieJarArchive(paths: paths)
+        #if DEBUG
+        // Debug 冒烟（数据根目录被重定向时）：密码存进数据目录里的 JSON 文件、Cookie 主目录也指到数据目录，
+        // 绝不读写真实钥匙串条目与 ~/.ipatool。
+        let environment = ProcessInfo.processInfo.environment
+        if let override = environment[AppPaths.dataRootOverrideKey], !override.isEmpty {
+            let vaultPath = environment[FileCredentialVault.environmentKey].flatMap { $0.isEmpty ? nil : $0 }
+                ?? paths.root.appendingPathComponent("debug-vault.json").path
+            vault = FileCredentialVault(fileURL: URL(fileURLWithPath: vaultPath))
+            cookies = CookieJarArchive(paths: paths, homeDirectory: paths.root.appendingPathComponent("home", isDirectory: true))
+        }
+        #endif
+        let switcher = AccountSwitcher(store: AccountStore(fileURL: paths.accountsFile), vault: vault, cookies: cookies,
+                                       auth: auth, current: currentAccount, makeLoginSession: makeLoginSession)
         return AppServices(
             paths: paths,
-            auth: AuthService(runner: runner),
-            makeLoginSession: { LoginSession(runner: runner) },
+            auth: auth,
+            makeLoginSession: makeLoginSession,
             search: SearchService(runner: runner),
-            versions: VersionService(runner: runner),
+            versions: VersionService(runner: runner, account: currentAccount),
             lookup: AppLookupService(directory: paths.artworkCacheDirectory),
             queue: DownloadQueue(runner: runner),
             historyStore: HistoryStore(fileURL: paths.historyFile),
@@ -114,7 +125,9 @@ struct AppServices {
             defaults: UserDefaults.standard,
             ipatoolVersion: { try await locator.detectVersion(paths: paths) },
             makeUpdateChecker: { UpdateChecker(owner: $0, repo: ProjectInfo.repositoryName) },
-            setupError: setupError
+            setupError: setupError,
+            currentAccount: currentAccount,
+            switcher: switcher
         )
     }
 }

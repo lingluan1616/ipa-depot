@@ -37,7 +37,7 @@ private struct IntroStep: View {
             VStack(alignment: .leading, spacing: 14) {
                 NoticeRow(symbol: "lock.shield",
                           title: "密码只在本机使用",
-                          detail: "密码只用于在这台 Mac 上向 Apple 登录，不会上传到其他任何地方，IPA Depot 也不会保存它。")
+                          detail: "密码只用于在这台 Mac 上向 Apple 登录，不会上传到其他任何地方。为了一键切换账号，IPA Depot 会把它保存在这台 Mac 的钥匙串里。")
                 NoticeRow(symbol: "arrow.down.circle",
                           title: "首次登录需要准备组件",
                           detail: "ipatool 第一次登录时会下载运行所需的组件，可能需要几分钟，请保持网络畅通。")
@@ -46,7 +46,7 @@ private struct IntroStep: View {
                           detail: "授权框不在登录时出现：登录成功后第一次搜索会弹一次，第一次查看历史版本或下载时再弹一次（两条不同的钥匙串记录），都要输入这台 Mac 的登录密码。两次都选「始终允许」后不再询问。")
                 NoticeRow(symbol: "globe.asia.australia",
                           title: "商店地区跟随账号",
-                          detail: "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，需登出后换该地区的账号登录。")
+                          detail: "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，可在侧栏账号菜单添加该地区的账号，随时一键切换。")
             }
 
             KeychainPromptIllustration()
@@ -177,11 +177,14 @@ private struct CredentialsStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("登录 Apple ID")
+                Text(login.mode == .addAccount ? "添加账号" : "登录 Apple ID")
                     .font(BrandFont.title)
-                Text("搜索与下载使用该账号所在地区的 App Store。")
+                Text(login.mode == .addAccount && model.account != nil
+                     ? "会先保存并退出当前账号，再登录新账号；新账号的密码保存在这台 Mac 的钥匙串中。"
+                     : "搜索与下载使用该账号所在地区的 App Store。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Form {
@@ -193,10 +196,15 @@ private struct CredentialsStep: View {
                     .textContentType(.password)
                     .focused($focused, equals: .secret)
                     .onSubmit(submit)
+                Picker("地区标签", selection: $login.region) {
+                    ForEach(AccountRegion.allCases) { region in
+                        Text(region.title).tag(region)
+                    }
+                }
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
-            .frame(height: 112)
+            .frame(height: 150)
             .padding(.horizontal, -20)
             .disabled(login.isWorking)
 
@@ -211,7 +219,12 @@ private struct CredentialsStep: View {
             }
 
             if let error = login.error {
-                ErrorDetailView(error: error)
+                VStack(alignment: .leading, spacing: 6) {
+                    ErrorDetailView(error: error)
+                    if let note = login.rollbackNote {
+                        Text(note).foregroundStyle(.secondary)
+                    }
+                }
                     .font(.callout)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -219,8 +232,10 @@ private struct CredentialsStep: View {
             }
 
             HStack {
-                Button("返回") { login.step = .intro }
-                    .disabled(login.isWorking)
+                if login.mode == .signIn {
+                    Button("返回") { login.step = .intro }
+                        .disabled(login.isWorking)
+                }
                 Spacer()
                 Button("取消", role: .cancel) { model.dismissLogin() }
                     .keyboardShortcut(.cancelAction)

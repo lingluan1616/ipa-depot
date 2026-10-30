@@ -34,6 +34,10 @@ public struct AppPaths: Sendable, Equatable {
     public var historyFile: URL { root.appendingPathComponent("history.json") }
     /// 跨启动保存的下载队列（排队中与已暂停的任务）。
     public var queueFile: URL { root.appendingPathComponent("queue.json") }
+    /// 多账号列表（不含密码；密码在钥匙串 `app.ipadepot.mac.accounts`）。
+    public var accountsFile: URL { root.appendingPathComponent("accounts.json") }
+    /// 每个账号独立保存的 ipatool Cookie：`accounts/<账号 id>/cookies`。
+    public var accountsDirectory: URL { root.appendingPathComponent("accounts", isDirectory: true) }
 
     @discardableResult
     public func ensureDirectory(_ url: URL) throws -> URL {

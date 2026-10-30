@@ -18,6 +18,8 @@ public enum IpatoolErrorKind: String, Sendable, CaseIterable, Codable {
     case cancelled
     case invalidOutput
     case verificationFailed
+    /// 下载前自动切换账号失败（`raw` 为切换失败的原因）。
+    case accountSwitchFailed
     case unknown
 }
 
@@ -74,6 +76,8 @@ public struct IpatoolError: Error, LocalizedError, Sendable, Equatable {
             return "ipatool 返回了无法识别的结果。"
         case .verificationFailed:
             return "下载的文件校验失败（不是有效的 IPA 包）。"
+        case .accountSwitchFailed:
+            return "下载前自动切换到该任务所属的账号失败，请在侧栏账号菜单手动切换后重试。"
         case .unknown:
             return raw.isEmpty ? "发生未知错误。" : "发生错误：\(raw)"
         }

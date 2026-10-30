@@ -111,6 +111,16 @@ private struct SearchResults: View {
                 }
             case .signedOut:
                 SignedOutView()
+            case .accountChanged(let region):
+                ContentUnavailableView {
+                    Label("已切换到 \(region) 账号，请重新搜索", systemImage: "person.2.badge.gearshape")
+                } description: {
+                    Text("搜索结果来自账号所在地区的 App Store，切换账号后需要重新搜索。")
+                } actions: {
+                    if search.canSearch {
+                        Button("重新搜索「\(search.trimmedQuery)」") { search.submit() }
+                    }
+                }
             case .failed(let error):
                 ContentUnavailableView {
                     Label("搜索失败", systemImage: "exclamationmark.triangle")

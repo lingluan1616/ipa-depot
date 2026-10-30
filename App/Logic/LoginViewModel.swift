@@ -12,8 +12,17 @@ final class LoginViewModel {
         case twoFactor
     }
 
+    /// 首次登录（先看准备页）或添加账号（已有账号时，直接填账号密码）。
+    enum Mode: Equatable {
+        case signIn
+        case addAccount
+    }
+
+    let mode: Mode
     var step: Step = .intro
     var appleID = ""
+    /// 新账号的地区标签。
+    var region: AccountRegion = .mainlandChina
     /// 只绑定 SecureField，提交后立即清空；不写日志、不持久化。
     var password = ""
     var code = ""
@@ -24,15 +33,23 @@ final class LoginViewModel {
     /// 验证码页的提示（如「验证码不正确」）。
     private(set) var codeHint: String?
     private(set) var account: AccountInfo?
+    /// 添加账号失败后的补充说明（如「已恢复为原来的 日本 账号」）。
+    var rollbackNote: String?
 
     @ObservationIgnored var onSuccess: ((AccountInfo) -> Void)?
-    @ObservationIgnored private let makeSession: @Sendable () -> LoginSessioning
+    @ObservationIgnored private let makeSession: @MainActor (AccountRegion) -> LoginSessioning
     @ObservationIgnored private var session: LoginSessioning?
     @ObservationIgnored private var userCancelled = false
     @ObservationIgnored private var awaitingVerification = false
 
-    init(makeSession: @escaping @Sendable () -> LoginSessioning) {
+    init(mode: Mode = .signIn, makeSession: @escaping @MainActor (AccountRegion) -> LoginSessioning) {
+        self.mode = mode
         self.makeSession = makeSession
+        if mode == .addAccount { step = .credentials }
+    }
+
+    convenience init(makeSession: @escaping @Sendable () -> LoginSessioning) {
+        self.init(mode: .signIn, makeSession: { _ in makeSession() })
     }
 
     var canSubmitCredentials: Bool {
@@ -42,7 +59,7 @@ final class LoginViewModel {
     /// 本地校验：恰好 6 位 ASCII 数字。
     var isCodeValid: Bool { Self.isValidCode(code) }
 
-    static func isValidCode(_ text: String) -> Bool {
+    nonisolated static func isValidCode(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.count == 6 && trimmed.allSatisfy { $0.isASCII && $0.isNumber }
     }
@@ -55,6 +72,7 @@ final class LoginViewModel {
     func submitCredentials() async {
         guard canSubmitCredentials else { return }
         error = nil
+        rollbackNote = nil
         codeHint = nil
         userCancelled = false
         awaitingVerification = false
@@ -64,7 +82,7 @@ final class LoginViewModel {
         let email = appleID.trimmingCharacters(in: .whitespacesAndNewlines)
         let secret = password
         password = ""
-        let session = makeSession()
+        let session = makeSession(region)
         self.session = session
 
         let (events, continuation) = AsyncStream<LoginEvent>.makeStream()
@@ -132,6 +150,17 @@ final class LoginViewModel {
                 error = ErrorPresentation(failure)
             }
             if step == .twoFactor { step = .credentials }
+        }
+    }
+
+    /// 添加账号时切换器的进度（保存当前会话、退出当前账号、恢复原账号等）。
+    func applySwitchProgress(_ progress: AccountSwitchProgress) {
+        switch progress.phase {
+        case .savingCookies, .revoking, .restoringCookies, .rollingBack:
+            statusText = AccountsViewModel.statusText(progress)
+            if progress.phase == .rollingBack { isWorking = true }
+        default:
+            break
         }
     }
 

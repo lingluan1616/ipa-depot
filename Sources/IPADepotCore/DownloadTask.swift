@@ -7,14 +7,17 @@ public struct DownloadRequest: Sendable, Codable, Hashable {
     public var purchase: Bool
     public var output: URL
     public var platform: String?
+    /// 发起下载时的账号（多账号）；nil = 旧数据，视为当前账号。不影响 ipatool 参数。
+    public var accountID: UUID?
 
     public init(appID: Int64, externalVersionID: String? = nil, purchase: Bool = false,
-                output: URL, platform: String? = nil) {
+                output: URL, platform: String? = nil, accountID: UUID? = nil) {
         self.appID = appID
         self.externalVersionID = externalVersionID
         self.purchase = purchase
         self.output = output
         self.platform = platform
+        self.accountID = accountID
     }
 
     /// ipatool 参数（不含 `--format json`；交互模式，以便得到进度条文本）。

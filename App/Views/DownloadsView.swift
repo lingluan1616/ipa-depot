@@ -72,6 +72,10 @@ private struct DownloadRowView: View {
                     Text(verbatim: row.context.versionLabel)
                         .font(BrandFont.number)
                         .foregroundStyle(.secondary)
+                    if let region = row.regionTitle, !model.accounts.accounts.isEmpty {
+                        TagView(text: region)
+                            .help("下载所用账号的地区")
+                    }
                 }
                 progress
                 HStack(spacing: 8) {
@@ -124,6 +128,8 @@ private struct DownloadRowView: View {
             ProgressView(value: row.fraction ?? 0).tint(.red)
         case .queued:
             ProgressView(value: 0)
+        case .switchingAccount:
+            ProgressView().progressViewStyle(.linear).tint(.secondary)
         case .completed:
             EmptyView()
         }

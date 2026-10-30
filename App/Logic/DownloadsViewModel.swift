@@ -56,6 +56,8 @@ struct DownloadRow: Identifiable, Equatable {
     let output: URL
     /// 最近一次失败的原因（失败中，或从上次失败恢复为暂停时）；重试后清除。
     var lastFailure: IpatoolError? = nil
+    /// 任务所属账号的地区名（多账号时显示；未知为 nil）。
+    var regionTitle: String? = nil
 
     var fraction: Double? {
         if case .completed = status { return 1 }
@@ -87,6 +89,9 @@ struct DownloadRow: Identifiable, Equatable {
     var statusText: String {
         switch status {
         case .queued: return String(localized: "排队中")
+        case .switchingAccount:
+            if let region = regionTitle { return String(localized: "正在切换到 \(region) 账号…") }
+            return String(localized: "正在切换账号…")
         case .running:
             if progress == nil { return lastLog.map(Self.describe(log:)) ?? String(localized: "正在开始…") }
             return String(localized: "正在下载")
@@ -119,7 +124,9 @@ struct DownloadRow: Identifiable, Equatable {
         return nil
     }
 
-    var canPause: Bool { status == .running || status == .queued || status == .verifying }
+    var canPause: Bool {
+        status == .running || status == .queued || status == .verifying || status == .switchingAccount
+    }
     var canResume: Bool {
         switch status {
         case .paused, .failed: return true
@@ -151,10 +158,13 @@ final class DownloadsViewModel {
 
     /// 下载完成时回调（写入记录）。
     @ObservationIgnored var onRecord: ((DownloadRecord) -> Void)?
+    /// 账号 id → 地区标签原始值（`AccountRegion.rawValue`）；旧任务（无账号 id）返回当前账号的。
+    @ObservationIgnored var regionLabel: ((UUID?) -> String?)?
 
     @ObservationIgnored private let queue: DownloadQueueing
     @ObservationIgnored private let store: DownloadQueueStore?
     @ObservationIgnored private let destination: @MainActor () throws -> URL
+    @ObservationIgnored private let currentAccountID: @MainActor () -> UUID?
     /// 最近一次写入 `queue.json` 的内容（相同则不重写）。
     @ObservationIgnored private var lastPersisted: [PersistedDownload] = []
     @ObservationIgnored private var recorded: Set<UUID> = []
@@ -166,23 +176,29 @@ final class DownloadsViewModel {
     /// - Parameters:
     ///   - store: 队列的跨启动保存；nil = 不保存。
     ///   - destination: 返回（并在需要时创建）下载目录。
-    init(queue: DownloadQueueing, store: DownloadQueueStore? = nil, destination: @escaping @MainActor () throws -> URL) {
+    ///   - currentAccountID: 当前账号 id，入队时写进任务（任务属于另一个账号时，队列会先切换账号）。
+    init(queue: DownloadQueueing, store: DownloadQueueStore? = nil, destination: @escaping @MainActor () throws -> URL,
+         currentAccountID: @escaping @MainActor () -> UUID? = { nil }) {
         self.queue = queue
         self.store = store
         self.destination = destination
+        self.currentAccountID = currentAccountID
     }
 
     var rows: [DownloadRow] {
         items.compactMap { item in
             guard let context = contexts[item.id] else { return nil }
             return DownloadRow(id: item.id, context: context, status: item.status, progress: item.progress,
-                               lastLog: item.lastLog, output: item.request.output, lastFailure: item.lastFailure)
+                               lastLog: item.lastLog, output: item.request.output, lastFailure: item.lastFailure,
+                               regionTitle: regionLabel?(item.request.accountID).flatMap(AccountRegion.init(rawValue:))?.title)
         }
     }
 
     var activeRows: [DownloadRow] { rows.filter { !$0.status.isFinished } }
     var completedRows: [DownloadRow] { rows.filter { $0.status.isFinished } }
     var activeCount: Int { activeRows.count }
+    /// 是否有任务正在下载 / 校验 / 为下载切换账号（此时不允许手动切换账号）。
+    var hasActiveDownload: Bool { items.contains { $0.status.isActive } }
 
     /// 恢复上次保存的队列（一律为「已暂停」），然后开始订阅队列快照（App 启动时调用一次）。
     func startObserving() {
@@ -225,7 +241,8 @@ final class DownloadsViewModel {
         let output = DownloadFileNamer.uniqueURL(in: directory, name: context.name, version: context.versionLabel,
                                                  reserved: reserved)
         let request = DownloadRequest(appID: context.appID, externalVersionID: context.externalVersionID,
-                                      purchase: purchase, output: output, platform: context.platform.downloadPlatform)
+                                      purchase: purchase, output: output, platform: context.platform.downloadPlatform,
+                                      accountID: currentAccountID())
         let id = UUID()
         contexts[id] = context
         outputs[id] = output
@@ -268,7 +285,7 @@ final class DownloadsViewModel {
     func persistableEntries(_ snapshot: [DownloadQueueItem]) -> [PersistedDownload] {
         snapshot.compactMap { item in
             switch item.status {
-            case .queued, .running, .stopping, .verifying, .paused: break
+            case .queued, .switchingAccount, .running, .stopping, .verifying, .paused: break
             case .failed(let error) where error.kind == .licenseRequired: return nil
             case .failed: break
             case .completed: return nil
@@ -280,7 +297,7 @@ final class DownloadsViewModel {
                 purchase: item.request.purchase, outputPath: item.request.output.path,
                 platform: item.request.platform, displayPlatform: context.platform.rawValue,
                 isFree: context.isFree, totalBytes: item.progress?.total, addedAt: item.addedAt,
-                failure: item.lastFailure.map(PersistedFailure.init))
+                failure: item.lastFailure.map(PersistedFailure.init), accountID: item.request.accountID)
         }
     }
 
@@ -329,7 +346,9 @@ final class DownloadsViewModel {
                     version: result.info.shortVersion ?? context.versionLabel,
                     externalVersionID: context.externalVersionID,
                     size: size,
-                    path: result.fileURL.path)
+                    path: result.fileURL.path,
+                    accountID: item.request.accountID,
+                    regionLabel: regionLabel?(item.request.accountID))
                 onRecord?(record)
             case .failed(let error) where error.kind == .licenseRequired:
                 guard prompted.insert(item.id).inserted else { continue }

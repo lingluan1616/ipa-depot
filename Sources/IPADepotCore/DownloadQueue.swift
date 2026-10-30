@@ -11,10 +11,20 @@ public protocol DownloadTasking: AnyObject, Sendable {
 
 extension DownloadTask: DownloadTasking {}
 
+/// 下载前的账号切换（多账号）：任务属于另一个账号时，队列在启动它之前先调用切换。
+public protocol DownloadAccountSwitching: Sendable {
+    /// 该账号是否就是当前登录的账号（同步判断，不发起切换）。
+    func isCurrentAccount(_ accountID: UUID) -> Bool
+    /// 切换到该账号；失败时抛出 `IpatoolError`（`.accountSwitchFailed` 等）。
+    func switchForDownload(to accountID: UUID) async throws
+}
+
 /// 队列中一项的状态。
 public enum DownloadItemStatus: Sendable, Equatable {
     /// 等待前面的任务完成。
     case queued
+    /// 任务属于另一个账号，正在先切换账号（完成后自动开始下载）。
+    case switchingAccount
     case running
     /// 已请求暂停/取消，正在等子进程退出。
     case stopping
@@ -25,7 +35,7 @@ public enum DownloadItemStatus: Sendable, Equatable {
 
     public var isActive: Bool {
         switch self {
-        case .running, .stopping, .verifying: return true
+        case .switchingAccount, .running, .stopping, .verifying: return true
         default: return false
         }
     }
@@ -70,7 +80,8 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
 /// - `remove`：移除已完成 / 失败 / 暂停的条目（运行中的请用 `cancel`）；
 /// - `restore`：把上次退出时保存的任务以 `.paused` 放回队列（不自动开始；上次失败的保留失败原因）；
 /// - `terminateRunningTasks()`：App 退出时同步终止正在运行的子进程（不等待 actor）；
-/// - `updates()`：订阅快照流，订阅时立即收到当前快照。
+/// - `updates()`：订阅快照流，订阅时立即收到当前快照；
+/// - `setAccountSwitching(_:)`：设置后，任务的 `accountID` 不是当前账号时先切换账号再下载（切换失败任务置失败）。
 public actor DownloadQueue {
     public typealias TaskFactory = @Sendable (DownloadRequest) -> DownloadTasking
 
@@ -78,12 +89,17 @@ public actor DownloadQueue {
         var item: DownloadQueueItem
         let task: DownloadTasking
         var cancelRequested = false
+        /// 正在为该任务切换账号。
+        var switching = false
+        /// 切换账号期间用户点了暂停：切换结束后不开始下载，置为暂停。
+        var pauseRequested = false
     }
 
     private let makeTask: TaskFactory
     private var entries: [Entry] = []
     private var runningID: UUID?
     private var subscribers: [UUID: AsyncStream<[DownloadQueueItem]>.Continuation] = [:]
+    private var accountSwitching: DownloadAccountSwitching?
     /// 正在运行的任务（加锁，供 App 退出时在主线程同步终止）。
     private nonisolated let runningTask = RunningTaskBox()
 
@@ -120,6 +136,11 @@ public actor DownloadQueue {
 
     // MARK: - 操作
 
+    /// 设置下载前的账号切换（nil = 不切换，任务一律用当前账号下载）。
+    public func setAccountSwitching(_ switching: DownloadAccountSwitching?) {
+        accountSwitching = switching
+    }
+
     @discardableResult
     public func add(_ request: DownloadRequest, id: UUID = UUID()) -> UUID {
         entries.append(Entry(item: DownloadQueueItem(id: id, request: request), task: makeTask(request)))
@@ -152,6 +173,11 @@ public actor DownloadQueue {
             entries[index].item.status = .stopping
             entries[index].task.pause()
             publish()
+        case .switchingAccount where entries[index].switching:
+            // 切换账号无法中途打断（会触发回滚）；切换结束后不再开始下载
+            entries[index].pauseRequested = true
+            entries[index].item.status = .stopping
+            publish()
         case .queued:
             entries[index].item.status = .paused
             publish()
@@ -179,7 +205,9 @@ public actor DownloadQueue {
         if runningID == id {
             entries[index].cancelRequested = true
             entries[index].item.status = .stopping
-            entries[index].task.cancel()
+            if !entries[index].switching {
+                entries[index].task.cancel()
+            }
             publish()
         } else if !entries[index].item.status.isFinished {
             let request = entries[index].item.request
@@ -217,6 +245,73 @@ public actor DownloadQueue {
         let id = entries[index].item.id
         let task = entries[index].task
         runningID = id
+        if let accountID = entries[index].item.request.accountID, let switching = accountSwitching,
+           !switching.isCurrentAccount(accountID) {
+            entries[index].item.status = .switchingAccount
+            entries[index].item.lastLog = nil
+            entries[index].switching = true
+            publish()
+            Task {
+                do {
+                    try await switching.switchForDownload(to: accountID)
+                    self.afterSwitch(id, error: nil)
+                } catch {
+                    let failure = (error as? IpatoolError)
+                        ?? IpatoolError(kind: .accountSwitchFailed, raw: error.localizedDescription)
+                    self.afterSwitch(id, error: failure)
+                }
+            }
+            return
+        }
+        start(index: index, id: id, task: task)
+    }
+
+    /// 账号切换结束：成功则开始下载（期间被暂停 / 取消则相应处理），失败则任务置失败。
+    private func afterSwitch(_ id: UUID, error: IpatoolError?) {
+        guard let index = index(of: id) else {
+            if runningID == id { runningID = nil }
+            pump()
+            return
+        }
+        entries[index].switching = false
+        if entries[index].cancelRequested {
+            runningID = nil
+            let request = entries[index].item.request
+            entries.remove(at: index)
+            Self.removeTemporaryFile(for: request)
+            publish()
+            pump()
+            return
+        }
+        if entries[index].pauseRequested {
+            entries[index].pauseRequested = false
+            runningID = nil
+            entries[index].item.status = .paused
+            publish()
+            pump()
+            return
+        }
+        if let error {
+            runningID = nil
+            let failure = error.kind == .accountSwitchFailed ? error
+                : IpatoolError(kind: .accountSwitchFailed, raw: error.raw.isEmpty ? error.message : error.raw,
+                               exitCode: error.exitCode)
+            entries[index].item.status = .failed(failure)
+            entries[index].item.lastFailure = failure
+            publish()
+            pump()
+            return
+        }
+        guard !runningTask.isShutDown else {
+            runningID = nil
+            entries[index].item.status = .paused
+            publish()
+            return
+        }
+        start(index: index, id: id, task: entries[index].task)
+    }
+
+    private func start(index: Int, id: UUID, task: DownloadTasking) {
         runningTask.set(task)
         entries[index].item.status = .running
         publish()

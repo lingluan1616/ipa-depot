@@ -55,6 +55,10 @@ private struct HistoryRow: View {
                     Text(verbatim: record.version)
                         .font(BrandFont.number)
                         .foregroundStyle(.secondary)
+                    if let region = model.accounts.region(for: record.accountID, snapshot: record.regionLabel) {
+                        TagView(text: region.title)
+                            .help("下载所用账号的地区")
+                    }
                     if !exists { TagView(text: String(localized: "文件已不存在")) }
                 }
                 HStack(spacing: 6) {

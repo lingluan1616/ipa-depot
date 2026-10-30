@@ -54,6 +54,8 @@ final class SearchViewModel {
         case results
         case empty
         case signedOut
+        /// 刚切换了账号（参数为新账号的地区名）：结果已清空，提示重新搜索。
+        case accountChanged(String)
         case failed(ErrorPresentation)
     }
 
@@ -112,6 +114,16 @@ final class SearchViewModel {
             rows = []
             phase = .failed(ErrorPresentation(message: error.localizedDescription))
         }
+    }
+
+    /// 账号切换后：取消进行中的搜索、清空结果并提示「已切换到 X 账号，请重新搜索」（不自动重新搜索）。
+    /// `label` 为 nil 表示现在未登录。
+    func accountChanged(label: String?) {
+        currentTask?.cancel()
+        currentTask = nil
+        rows = []
+        lastQuery = nil
+        phase = label.map { .accountChanged($0) } ?? .idle
     }
 
     /// 登出后清空。

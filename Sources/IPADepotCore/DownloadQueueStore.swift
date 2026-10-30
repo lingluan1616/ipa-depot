@@ -25,11 +25,13 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
     public var addedAt: Date
     /// 上次失败的原因（没有失败为 nil）；恢复后仍显示，重试时清除。旧文件没有此字段时为 nil。
     public var failure: PersistedFailure?
+    /// 任务所属账号；0.1.0 的旧文件没有此字段（nil），视为当前账号。
+    public var accountID: UUID?
 
     public init(id: UUID, appID: Int64, name: String, bundleID: String, versionLabel: String,
                 externalVersionID: String?, purchase: Bool, outputPath: String, platform: String?,
                 displayPlatform: String, isFree: Bool, totalBytes: Int64?, addedAt: Date,
-                failure: PersistedFailure? = nil) {
+                failure: PersistedFailure? = nil, accountID: UUID? = nil) {
         self.id = id
         self.appID = appID
         self.name = name
@@ -44,12 +46,13 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
         self.totalBytes = totalBytes
         self.addedAt = addedAt
         self.failure = failure
+        self.accountID = accountID
     }
 
     /// 重新下载用的请求（与当初入队时同参数）。
     public var request: DownloadRequest {
         DownloadRequest(appID: appID, externalVersionID: externalVersionID, purchase: purchase,
-                        output: URL(fileURLWithPath: outputPath), platform: platform)
+                        output: URL(fileURLWithPath: outputPath), platform: platform, accountID: accountID)
     }
 
     /// 恢复时展示的进度：`.tmp` 当前大小 + 已知总大小。两者都没有时为 nil。

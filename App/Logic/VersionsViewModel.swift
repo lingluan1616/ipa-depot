@@ -17,6 +17,8 @@ final class VersionsViewModel {
         case loading
         case loaded
         case licenseRequired
+        /// 刚切换了账号（参数为新账号的地区名；nil = 未登录）：列表已清空，等用户手动重新获取。
+        case accountChanged(String?)
         case failed(ErrorPresentation)
     }
 
@@ -173,6 +175,16 @@ final class VersionsViewModel {
 
     func cancel() {
         pumpTask?.cancel()
+    }
+
+    /// 账号切换后：停止懒加载、清空列表并提示（不自动重新请求，避免切换瞬间并发）。
+    func accountChanged(label: String?) {
+        pumpTask?.cancel()
+        pumpTask = nil
+        setRows([])
+        visible = []
+        batchLog = []
+        phase = .accountChanged(label)
     }
 
     /// 下载上下文。

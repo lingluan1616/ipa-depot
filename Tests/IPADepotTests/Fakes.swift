@@ -224,12 +224,17 @@ func makeServices(root: URL, auth: AuthServicing = FakeAuth(.failure(IpatoolErro
                   versions: VersionServicing = FakeVersions(ids: .success([])),
                   queue: DownloadQueueing = DownloadQueue(makeTask: { FakeDownloadTask(request: $0) }),
                   login: @escaping @Sendable () -> LoginSessioning = { FakeLoginSession(script: .succeed) },
-                  defaults: MemoryDefaults = MemoryDefaults()) -> AppServices {
+                  defaults: MemoryDefaults = MemoryDefaults(),
+                  vault: CredentialVault = InMemoryCredentialVault()) -> AppServices {
     let paths = AppPaths(root: root.appendingPathComponent("support"))
+    let current = CurrentAccount()
+    let cookies = CookieJarArchive(paths: paths, homeDirectory: root.appendingPathComponent("home", isDirectory: true))
+    let switcher = AccountSwitcher(store: AccountStore(fileURL: paths.accountsFile), vault: vault, cookies: cookies,
+                                   auth: auth, current: current, makeLoginSession: login)
     return AppServices(paths: paths, auth: auth, makeLoginSession: login, search: search, versions: versions,
                        lookup: FakeLookup(), queue: queue, historyStore: HistoryStore(fileURL: paths.historyFile),
                        queueStore: DownloadQueueStore(fileURL: paths.queueFile),
                        defaults: defaults, ipatoolVersion: { "2.7.0" },
                        makeUpdateChecker: { _ in FakeUpdateChecker(result: .upToDate(latest: "0.1.0")) },
-                       setupError: nil)
+                       setupError: nil, currentAccount: current, switcher: switcher)
 }

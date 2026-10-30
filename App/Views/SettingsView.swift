@@ -9,6 +9,18 @@ struct SettingsView: View {
     var body: some View {
         let settings = model.settings
         Form {
+            Section("账号") {
+                LabeledContent("已保存的账号") {
+                    HStack(spacing: 8) {
+                        Text("\(model.accounts.accounts.count) 个").foregroundStyle(.secondary)
+                        Button("管理账号…") { model.accounts.showingManager = true }
+                    }
+                }
+                Text("密码保存在这台 Mac 的钥匙串中。切换账号会重新登录，第一次切到某个账号可能需要验证码。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("下载") {
                 LabeledContent("下载位置") {
                     HStack(spacing: 8) {

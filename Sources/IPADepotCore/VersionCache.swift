@@ -21,13 +21,26 @@ public struct CachedVersions: Sendable, Codable, Equatable {
 }
 
 /// 版本缓存读写。写入采用原子替换。
+/// 多账号：缓存键 = App ID + 账号 id，文件为 `cache/versions/<账号 id>/<appID>.json`（不同地区的账号版本列表可能不同）；
+/// 没有账号 id 时沿用旧路径 `cache/versions/<appID>.json`。
 public struct VersionCache: Sendable {
     public let directory: URL
+    public let accountID: UUID?
 
-    public init(directory: URL) { self.directory = directory }
+    public init(directory: URL, accountID: UUID? = nil) {
+        self.directory = directory
+        self.accountID = accountID
+    }
+
+    /// 同一目录、指定账号的缓存。
+    public func scoped(to accountID: UUID?) -> VersionCache {
+        VersionCache(directory: directory, accountID: accountID)
+    }
 
     public func fileURL(appID: Int64) -> URL {
-        directory.appendingPathComponent("\(appID).json")
+        guard let accountID else { return directory.appendingPathComponent("\(appID).json") }
+        return directory.appendingPathComponent(accountID.uuidString, isDirectory: true)
+            .appendingPathComponent("\(appID).json")
     }
 
     public func load(appID: Int64) -> CachedVersions? {
@@ -36,9 +49,10 @@ public struct VersionCache: Sendable {
     }
 
     public func save(_ entry: CachedVersions) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = fileURL(appID: entry.appID)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try Self.encoder.encode(entry)
-        try data.write(to: fileURL(appID: entry.appID), options: .atomic)
+        try data.write(to: url, options: .atomic)
     }
 
     public func remove(appID: Int64) {

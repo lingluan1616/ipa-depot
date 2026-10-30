@@ -86,6 +86,20 @@ struct VersionsView: View {
                 }
                 Button("重新获取") { Task { await versions.load() } }
             }
+        case .accountChanged(let region):
+            ContentUnavailableView {
+                if let region {
+                    Label("已切换到 \(region) 账号，请重新搜索", systemImage: "person.2.badge.gearshape")
+                } else {
+                    Label("已退出登录", systemImage: "person.crop.circle.badge.xmark")
+                }
+            } description: {
+                Text("不同地区账号的版本列表与授权可能不同，需要重新获取。")
+            } actions: {
+                if model.account != nil {
+                    Button("用当前账号重新获取") { Task { await versions.load() } }
+                }
+            }
         case .failed(let error):
             ContentUnavailableView {
                 Label("无法获取版本列表", systemImage: "exclamationmark.triangle")

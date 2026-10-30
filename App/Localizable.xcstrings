@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
+    "%@ 账号需要验证码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The %@ account needs a verification code"
+          }
+        }
+      }
+    },
+    "%lld 个": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
     "%lld 个结果": {
       "localizations": {
         "en": {
@@ -27,6 +47,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "IPA Depot"
+          }
+        }
+      }
+    },
+    "IPA Depot 现在支持保存多个账号、一键切换地区。已为当前登录的账号建好一条记录，请选一下它所在的地区，方便在侧栏区分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IPA Depot can now save multiple accounts and switch regions in one click. A record was created for the account you are signed in with; choose its region so you can tell accounts apart in the sidebar."
           }
         }
       }
@@ -131,6 +161,16 @@
         }
       }
     },
+    "下载所用账号的地区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Region of the account used for this download"
+          }
+        }
+      }
+    },
     "下载最新版": {
       "localizations": {
         "en": {
@@ -141,12 +181,32 @@
         }
       }
     },
+    "不同地区账号的版本列表与授权可能不同，需要重新获取。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version lists and licenses can differ between regions, so they need to be fetched again."
+          }
+        }
+      }
+    },
     "不在 MIT 范围内": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Not covered by MIT"
+          }
+        }
+      }
+    },
+    "中国大陆": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mainland China"
           }
         }
       }
@@ -167,6 +227,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove from History"
+          }
+        }
+      }
+    },
+    "会先保存并退出当前账号，再登录新账号；新账号的密码保存在这台 Mac 的钥匙串中。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current account's session is saved and signed out first, then the new account signs in. Its password is stored in this Mac's keychain."
+          }
+        }
+      }
+    },
+    "会删除它保存的会话与钥匙串里的密码。下载记录不受影响。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its saved session and the password in the keychain will be deleted. Download history is not affected."
+          }
+        }
+      }
+    },
+    "保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
           }
         }
       }
@@ -211,12 +301,102 @@
         }
       }
     },
+    "其他": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
     "内置 ipatool": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Bundled ipatool"
+          }
+        }
+      }
+    },
+    "切换会重新登录 Apple ID，请稍候。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching signs in to the Apple ID again. Please wait."
+          }
+        }
+      }
+    },
+    "切换到": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to"
+          }
+        }
+      }
+    },
+    "切换到 %@ 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to %@ Account"
+          }
+        }
+      }
+    },
+    "切换失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch failed"
+          }
+        }
+      }
+    },
+    "切换失败，正在恢复": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch failed, restoring"
+          }
+        }
+      }
+    },
+    "切换失败，正在恢复 %@ 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch failed, restoring the %@ account"
+          }
+        }
+      }
+    },
+    "切换账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch account"
+          }
+        }
+      }
+    },
+    "切换账号失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't Switch Accounts"
           }
         }
       }
@@ -261,6 +441,26 @@
         }
       }
     },
+    "取消切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Switch"
+          }
+        }
+      }
+    },
+    "另一个账号切换正在进行，请稍后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Another account switch is in progress. Try again later."
+          }
+        }
+      }
+    },
     "只清理 IPA Depot 自己的缓存，不影响 ipatool 的组件缓存与登录状态。": {
       "localizations": {
         "en": {
@@ -277,6 +477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Only the history is cleared. Downloaded IPA files are not deleted."
+          }
+        }
+      }
+    },
+    "台湾": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taiwan"
           }
         }
       }
@@ -327,6 +537,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "地区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Region"
+          }
+        }
+      }
+    },
+    "地区标签": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Region label"
           }
         }
       }
@@ -391,6 +621,26 @@
         }
       }
     },
+    "密码保存在这台 Mac 的钥匙串中。切换账号会重新登录，第一次切到某个账号可能需要验证码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords are stored in this Mac's keychain. Switching accounts signs in again, and the first switch to an account may ask for a verification code."
+          }
+        }
+      }
+    },
+    "密码保存在这台 Mac 的钥匙串中，切换时自动登录。地区只能通过换账号改变，标签仅用于区分。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords are stored in this Mac's keychain and used to sign in automatically when switching. The region can only change by switching accounts; the label is just for telling them apart."
+          }
+        }
+      }
+    },
     "密码只在本机使用": {
       "localizations": {
         "en": {
@@ -401,12 +651,43 @@
         }
       }
     },
+    "密码只用于在这台 Mac 上向 Apple 登录，不会上传到其他任何地方。为了一键切换账号，IPA Depot 会把它保存在这台 Mac 的钥匙串里。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your password is only used to sign in to Apple from this Mac and is never uploaded anywhere else. To switch accounts in one click, IPA Depot stores it in this Mac's keychain."
+          }
+        }
+      }
+    },
     "密码只用于在这台 Mac 上向 Apple 登录，不会上传到其他任何地方，IPA Depot 也不会保存它。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Your password is only used to sign in to Apple from this Mac. It is never uploaded anywhere else, and IPA Depot does not store it."
+          }
+        }
+      }
+    },
+    "密码已保存": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password saved"
+          }
+        }
+      }
+    },
+    "密码待补": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password needed"
           }
         }
       }
@@ -431,12 +712,62 @@
         }
       }
     },
+    "已保存的账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved accounts"
+          }
+        }
+      }
+    },
+    "已切换到 %@ 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switched to the %@ account"
+          }
+        }
+      }
+    },
+    "已切换到 %@ 账号，请重新搜索": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switched to the %@ account. Please search again."
+          }
+        }
+      }
+    },
+    "已取消切换。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The switch was cancelled."
+          }
+        }
+      }
+    },
     "已完成": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Completed"
+          }
+        }
+      }
+    },
+    "已恢复为原来的 %@ 账号。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restored the previous %@ account."
           }
         }
       }
@@ -481,6 +812,16 @@
         }
       }
     },
+    "已退出登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out"
+          }
+        }
+      }
+    },
     "平台": {
       "localizations": {
         "en": {
@@ -502,12 +843,32 @@
         }
       }
     },
+    "当前": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current"
+          }
+        }
+      }
+    },
     "当前版本 %@": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Current version %@"
+          }
+        }
+      }
+    },
+    "恢复 %@ 账号需要验证码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring the %@ account needs a verification code"
           }
         }
       }
@@ -548,6 +909,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ipatool Not Found"
+          }
+        }
+      }
+    },
+    "找不到该账号，可能已被移除。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The account wasn't found. It may have been removed."
           }
         }
       }
@@ -632,7 +1003,18 @@
         }
       }
     },
+    "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，可在侧栏账号菜单添加该地区的账号，随时一键切换。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search and downloads use the App Store of the account's region. To get apps from another region, add an account from that region in the sidebar account menu and switch in one click."
+          }
+        }
+      }
+    },
     "搜索与下载以账号所在地区的 App Store 为准；想下其他地区的 App，需登出后换该地区的账号登录。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -658,6 +1040,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Search Failed"
+          }
+        }
+      }
+    },
+    "搜索结果来自账号所在地区的 App Store，切换账号后需要重新搜索。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Results come from the App Store of the account's region, so search again after switching accounts."
           }
         }
       }
@@ -702,6 +1094,16 @@
         }
       }
     },
+    "新密码会保存到这台 Mac 的钥匙串，下次切换到该账号时使用。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The new password is stored in this Mac's keychain and used the next time you switch to this account."
+          }
+        }
+      }
+    },
     "新版本 %@ 已发布。": {
       "localizations": {
         "en": {
@@ -732,6 +1134,26 @@
         }
       }
     },
+    "无法保存密码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the password."
+          }
+        }
+      }
+    },
+    "无法保存账号列表。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't save the account list."
+          }
+        }
+      }
+    },
     "无法创建下载目录。": {
       "localizations": {
         "en": {
@@ -748,6 +1170,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn’t Start Download"
+          }
+        }
+      }
+    },
+    "无法登录 %@：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign in to %1$@: %2$@"
           }
         }
       }
@@ -772,6 +1204,46 @@
         }
       }
     },
+    "无法读写登录会话文件。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read or write the session file."
+          }
+        }
+      }
+    },
+    "无法读取钥匙串中保存的密码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't read the password saved in the keychain."
+          }
+        }
+      }
+    },
+    "无法退出当前账号：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sign out of the current account: %@"
+          }
+        }
+      }
+    },
+    "日本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Japan"
+          }
+        }
+      }
+    },
     "暂停": {
       "localizations": {
         "en": {
@@ -792,12 +1264,42 @@
         }
       }
     },
+    "更新保存的密码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Saved Password"
+          }
+        }
+      }
+    },
+    "更新密码…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Password…"
+          }
+        }
+      }
+    },
     "最新": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Latest"
+          }
+        }
+      }
+    },
+    "有下载正在进行，暂停后才能切换账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A download is in progress. Pause it to switch accounts"
           }
         }
       }
@@ -829,6 +1331,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "License file not found (Contents/Resources/ipatool-LICENSE)."
+          }
+        }
+      }
+    },
+    "未能恢复原来的账号，现在处于未登录状态。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't restore the previous account. You are now signed out."
+          }
+        }
+      }
+    },
+    "未能恢复原来的账号，现在处于未登录状态。请在侧栏账号菜单重新选择账号登录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't restore the previous account. You are now signed out. Choose an account in the sidebar account menu to sign in again."
           }
         }
       }
@@ -894,6 +1416,16 @@
         }
       }
     },
+    "正在保存当前会话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving the current session"
+          }
+        }
+      }
+    },
     "正在停止…": {
       "localizations": {
         "en": {
@@ -924,12 +1456,42 @@
         }
       }
     },
+    "正在切换到 %@ 账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching to the %@ account…"
+          }
+        }
+      }
+    },
+    "正在切换账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switching accounts…"
+          }
+        }
+      }
+    },
     "正在开始…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Starting…"
+          }
+        }
+      }
+    },
+    "正在恢复 %@ 账号的会话": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring the %@ account's session"
           }
         }
       }
@@ -974,6 +1536,16 @@
         }
       }
     },
+    "正在登录 %@ 账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing in to the %@ account"
+          }
+        }
+      }
+    },
     "正在登录…": {
       "localizations": {
         "en": {
@@ -1000,6 +1572,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connecting to Apple…"
+          }
+        }
+      }
+    },
+    "正在退出当前账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out of the current account"
           }
         }
       }
@@ -1060,6 +1642,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Legal Notice…"
+          }
+        }
+      }
+    },
+    "添加账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Account"
+          }
+        }
+      }
+    },
+    "添加账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Account…"
           }
         }
       }
@@ -1144,6 +1746,16 @@
         }
       }
     },
+    "用当前账号重新获取": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fetch Again with Current Account"
+          }
+        }
+      }
+    },
     "登出": {
       "localizations": {
         "en": {
@@ -1155,11 +1767,22 @@
       }
     },
     "登出会删除 ipatool 保存在钥匙串中的登录信息。下载记录不受影响。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Signing out removes the sign-in information ipatool keeps in your keychain. Download history is not affected."
+          }
+        }
+      }
+    },
+    "登出会删除 ipatool 保存在钥匙串中的登录信息；账号仍保留在列表里，可随时切换回来。下载记录不受影响。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out deletes the sign-in information ipatool keeps in the keychain. The account stays in the list so you can switch back anytime. Download history is not affected."
           }
         }
       }
@@ -1170,6 +1793,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign Out Failed"
+          }
+        }
+      }
+    },
+    "登出当前账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Out of Current Account…"
           }
         }
       }
@@ -1224,12 +1857,43 @@
         }
       }
     },
+    "登录并切换": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign In and Switch"
+          }
+        }
+      }
+    },
+    "确定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
     "确定要登出吗？": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sign out?"
+          }
+        }
+      }
+    },
+    "确定要登出当前账号吗？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign out of the current account?"
           }
         }
       }
@@ -1244,6 +1908,46 @@
         }
       }
     },
+    "移除 %@？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %@?"
+          }
+        }
+      }
+    },
+    "移除账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Account"
+          }
+        }
+      }
+    },
+    "移除账号失败。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't remove the account."
+          }
+        }
+      }
+    },
+    "稍后": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        }
+      }
+    },
     "第一次访问钥匙串时，系统会弹出授权框并要求输入这台 Mac 的登录密码，请选择「始终允许」。": {
       "extractionState": "stale",
       "localizations": {
@@ -1251,6 +1955,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The first time the keychain is accessed, macOS asks for this Mac’s login password. Choose “Always Allow”."
+          }
+        }
+      }
+    },
+    "管理账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage Accounts"
+          }
+        }
+      }
+    },
+    "管理账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage Accounts…"
           }
         }
       }
@@ -1281,6 +2005,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cache"
+          }
+        }
+      }
+    },
+    "美国": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "United States"
+          }
+        }
+      }
+    },
+    "补填密码…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter Password…"
           }
         }
       }
@@ -1345,6 +2089,26 @@
         }
       }
     },
+    "该账号已在列表中。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account is already in the list."
+          }
+        }
+      }
+    },
+    "该账号没有保存密码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No password is saved for this account."
+          }
+        }
+      }
+    },
     "请输入 6 位数字验证码。": {
       "localizations": {
         "en": {
@@ -1361,6 +2125,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter the 6-digit code shown on your trusted device."
+          }
+        }
+      }
+    },
+    "请选择该账号的地区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose This Account's Region"
+          }
+        }
+      }
+    },
+    "账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        }
+      }
+    },
+    "账号切换正在进行，请稍后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An account switch is in progress. Try again later."
           }
         }
       }
@@ -1385,6 +2179,16 @@
         }
       }
     },
+    "输入密码以切换账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter Password to Switch"
+          }
+        }
+      }
+    },
     "返回": {
       "localizations": {
         "en": {
@@ -1405,6 +2209,36 @@
         }
       }
     },
+    "还没有保存的账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Saved Accounts"
+          }
+        }
+      }
+    },
+    "这个账号的密码尚未保存：切到其他账号后再切回来时，需要补填一次密码。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account's password isn't saved yet. After you switch to another account, you'll need to enter it once when switching back."
+          }
+        }
+      }
+    },
+    "这个账号还没有保存密码。输入后会用它登录，成功后保存到这台 Mac 的钥匙串，以后切换不再询问。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No password is saved for this account yet. It will be used to sign in and, if successful, stored in this Mac's keychain so you won't be asked again."
+          }
+        }
+      }
+    },
     "这是付费 App，须先在 App Store 购买后才能下载。": {
       "localizations": {
         "en": {
@@ -1421,6 +2255,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This is a paid app. Buy it in the App Store before viewing or downloading older versions."
+          }
+        }
+      }
+    },
+    "这是当前登录的账号：移除会先退出登录，并删除它保存的会话与钥匙串里的密码。下载记录不受影响。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the signed-in account. Removing it signs out first and deletes its saved session and the password in the keychain. Download history is not affected."
           }
         }
       }
@@ -1465,12 +2309,32 @@
         }
       }
     },
+    "选择账号登录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Account to Sign In"
+          }
+        }
+      }
+    },
     "邮箱或手机号码": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Email or phone number"
+          }
+        }
+      }
+    },
+    "重新搜索「%@」": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search “%@” Again"
           }
         }
       }
@@ -1536,6 +2400,16 @@
         }
       }
     },
+    "韩国": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Korea"
+          }
+        }
+      }
+    },
     "项目地址": {
       "localizations": {
         "en": {
@@ -1572,6 +2446,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "First sign-in prepares components"
+          }
+        }
+      }
+    },
+    "香港": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hong Kong"
           }
         }
       }

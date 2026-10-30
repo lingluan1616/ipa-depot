@@ -11,9 +11,14 @@ public struct DownloadRecord: Sendable, Codable, Equatable, Identifiable {
     public var size: Int64
     public var path: String
     public var completedAt: Date
+    /// 下载所用账号；0.1.0 的旧记录没有此字段（nil），界面视为当前账号。
+    public var accountID: UUID?
+    /// 下载时账号的地区标签（`AccountRegion` 原始值；账号被移除后仍能显示）。
+    public var regionLabel: String?
 
     public init(id: UUID = UUID(), appID: Int64, name: String, bundleID: String, version: String,
-                externalVersionID: String?, size: Int64, path: String, completedAt: Date = Date()) {
+                externalVersionID: String?, size: Int64, path: String, completedAt: Date = Date(),
+                accountID: UUID? = nil, regionLabel: String? = nil) {
         self.id = id
         self.appID = appID
         self.name = name
@@ -23,6 +28,8 @@ public struct DownloadRecord: Sendable, Codable, Equatable, Identifiable {
         self.size = size
         self.path = path
         self.completedAt = completedAt
+        self.accountID = accountID
+        self.regionLabel = regionLabel
     }
 
     public var fileURL: URL { URL(fileURLWithPath: path) }
