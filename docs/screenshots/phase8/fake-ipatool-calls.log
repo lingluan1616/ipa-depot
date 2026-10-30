@@ -1,0 +1,12 @@
+03:05:49 auth login --format json
+03:05:51 login jp@example.test cookies-before=
+03:05:51 search manga --limit 25 --platform iphone --format json --non-interactive
+03:05:52 download -i 1001 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p8-downloads/マンガ図書館（日本区）_5.2.0.ipa --format json
+03:05:52 download-as jp@example.test id=1001 pid=43986 start
+03:05:56 download -i 1002 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-p8-downloads/乗換案内（日本区）_12.1.ipa --format json
+03:05:56 download-as jp@example.test id=1002 pid=44033 start
+03:05:59 list-versions -i 1002 --format json --non-interactive
+03:05:59 list-versions-as jp@example.test
+03:05:59 get-version-metadata -i 1002 --external-version-id 880000001 --format json --non-interactive
+03:05:59 get-version-metadata -i 1002 --external-version-id 880000002 --format json --non-interactive
+03:05:59 get-version-metadata -i 1002 --external-version-id 880000003 --format json --non-interactive
