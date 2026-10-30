@@ -1,0 +1,20 @@
+21:19:59 auth login --format json
+21:20:01 login jp@example.test cookies-before=
+21:20:02 search app --limit 25 --platform iphone --format json --non-interactive
+21:20:04 auth revoke --format json --non-interactive
+21:20:04 revoke cookies=jp@example.test-trusted 
+21:20:04 auth login --format json
+21:20:05 login us@example.test cookies-before=
+21:20:09 search app --limit 25 --platform iphone --format json --non-interactive
+21:20:09 download -i 2001 -o build/smoke-downloads/Stream TV (US Store)_8.4.1.ipa --format json
+21:20:09 download-as us@example.test
+21:20:12 auth revoke --format json --non-interactive
+21:20:12 revoke cookies=us@example.test-trusted 
+21:20:12 auth login --format json
+21:20:13 login jp@example.test cookies-before=jp@example.test-trusted 
+21:20:14 auth revoke --format json --non-interactive
+21:20:14 revoke cookies=jp@example.test-trusted 
+21:20:14 auth login --format json
+21:20:16 login us@example.test cookies-before=
+21:20:18 download -i 2001 -o build/smoke-downloads/Stream TV (US Store)_8.4.1.ipa --format json
+21:20:18 download-as us@example.test

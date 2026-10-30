@@ -249,7 +249,7 @@ final class AccountsViewModel {
         case .revoking: return String(localized: "正在退出当前账号")
         case .restoringCookies: return String(localized: "正在恢复 \(region) 账号的会话")
         case .loggingIn:
-            if progress.detail == "preparing" { return String(localized: "正在准备认证组件…首次登录可能需要几分钟。") }
+            // ipatool 每次登录都会打印「the first login may take a few minutes」，切换时不据此提示「首次」
             return String(localized: "正在登录 \(region) 账号")
         case .needsTwoFactor:
             if progress.isRollback, let previous = progress.previous {

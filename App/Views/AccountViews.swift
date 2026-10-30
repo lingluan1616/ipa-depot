@@ -182,7 +182,7 @@ struct AccountManagerSheet: View {
                     }
                 }
                 .listStyle(.bordered(alternatesRowBackgrounds: true))
-                .frame(minHeight: 180, maxHeight: 320)
+                .frame(height: min(CGFloat(accounts.accounts.count) * 52 + 10, 320))
             }
             if let error = accounts.manageError {
                 ErrorDetailView(error: error)

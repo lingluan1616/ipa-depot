@@ -102,7 +102,8 @@ enum SmokeDriver {
     /// - `queueRestore`：重新启动后查看恢复的队列；
     /// - `p4LoginIntro`：只打开登录准备页截图（不登录）；
     /// - `p4Fail`：加入一个下载任务，配合「第一次 download 即失败」的假 ipatool，查看失败态，然后退出；
-    /// - `p4Restore`：重启后查看恢复的失败任务（暂停 + 上次失败原因），点重试（假 ipatool 第二次只 sleep），然后退出。
+    /// - `p4Restore`：重启后查看恢复的失败任务（暂停 + 上次失败原因），点重试（假 ipatool 第二次只 sleep），然后退出；
+    /// - `p5Accounts`：多账号完整流程（见 `runPhase5`）。
     private static func runPhase3(mode: String, model: AppModel, dir: URL, note: (String) -> Void) async {
         func describe(_ state: AppModel.AccountState) -> String {
             switch state {
@@ -186,9 +187,134 @@ enum SmokeDriver {
                 note("rows after retry: \(describeRows(model))")
                 capture("p4-04-retrying", dir: dir)
             }
+        case "p5Accounts":
+            await runPhase5(model: model, dir: dir, note: note)
+        case "p5Migrate":
+            // 配合 `-hasCompletedFirstLogin YES`（参数域）与已「登录」的假 ipatool：0.1.0 升级迁移 → 自动建账号并请选地区
+            await wait(timeout: 20) { model.accountState != .checking }
+            await sleep(1.2)
+            note("migrate: account=\(model.account?.email ?? "-") accounts=\(model.accounts.accounts.map { "\($0.email):\($0.regionLabel.rawValue):\($0.passwordState.rawValue)" }) prompt=\(model.accounts.regionPrompt?.email ?? "-")")
+            capture("p5-13-migration-region-prompt", dir: dir)
+            model.accounts.regionPrompt = nil // 有 sheet 时系统不会退出 App
+            await sleep(0.8)
         default:
             note("unknown mode")
         }
+    }
+
+    /// 阶段五冒烟（配合假 ipatool，不碰真实钥匙串与 ~/.ipatool）：添加日本账号 → 搜索 → 添加美国账号（2FA）→ 搜索结果随账号变化
+    /// → 美国账号的下载失败后切回日本 → 重试该任务时队列自动切换到美国（Cookie 过期需 2FA，遮罩输入验证码）→ 下载开始。
+    private static func runPhase5(model: AppModel, dir: URL, note: (String) -> Void) async {
+        func searchNow(_ term: String) async {
+            model.page = .search
+            model.search.query = term
+            await model.search.search()
+        }
+        func accountsLine() -> String {
+            model.accounts.accounts.map { "\($0.regionLabel.rawValue):\($0.email):\($0.passwordState.rawValue)\($0.id == model.accounts.active?.id ? "*" : "")" }
+                .joined(separator: ", ")
+        }
+        await sleep(1.0)
+        note("start: account=\(model.accountState) accounts=[\(accountsLine())]")
+        capture("p5-01-signed-out", dir: dir)
+
+        // 1. 首次登录 = 添加第一个账号（日本）
+        model.beginLogin()
+        await sleep(0.8)
+        guard let first = model.login else { note("no login sheet"); return }
+        first.continueFromIntro()
+        first.appleID = "jp@example.test"
+        first.password = "jp-pass"
+        first.region = .japan
+        await sleep(0.5)
+        capture("p5-02-add-first-account", dir: dir)
+        await first.submitCredentials()
+        await wait(timeout: 20) { model.login == nil }
+        await sleep(0.8)
+        note("after jp login: account=\(model.account?.email ?? "-") accounts=[\(accountsLine())]")
+
+        await searchNow("app")
+        await sleep(0.8)
+        note("search as jp → \(model.search.rows.map(\.name))")
+        capture("p5-03-search-japan", dir: dir)
+
+        // 2. 添加美国账号：先保存并退出日本账号，美国账号首次登录需要验证码
+        model.beginLogin()
+        await sleep(0.8)
+        guard let second = model.login else { note("no login sheet 2"); return }
+        note("add sheet mode=\(second.mode) step=\(second.step)")
+        second.appleID = "us@example.test"
+        second.password = "us-pass"
+        second.region = .unitedStates
+        let submitTask = Task { await second.submitCredentials() }
+        await wait(timeout: 20) { second.step == .twoFactor }
+        await sleep(0.6)
+        capture("p5-04-add-us-2fa", dir: dir)
+        second.code = "123456"
+        second.submitCode()
+        await submitTask.value
+        await wait(timeout: 20) { model.login == nil }
+        await sleep(0.8)
+        note("after us add: account=\(model.account?.email ?? "-") search.phase=\(model.search.phase) accounts=[\(accountsLine())]")
+        capture("p5-05-switched-to-us-notice", dir: dir)
+
+        await searchNow("app")
+        await sleep(0.8)
+        note("search as us → \(model.search.rows.map(\.name))")
+        capture("p5-06-search-us", dir: dir)
+
+        // 3. 美国账号下一个任务（假 ipatool 第一次下载失败），任务留在列表
+        try? Data().write(to: URL(fileURLWithPath: ProcessInfo.processInfo.environment["IPADEPOT_SMOKE_STATE"] ?? "/nonexistent")
+            .appendingPathComponent("fail-once"))
+        if let row = model.search.rows.first {
+            await model.downloads.enqueue(DownloadContext(app: row.app, platform: .iphone, externalVersionID: nil, versionLabel: nil))
+        }
+        await wait(timeout: 15) { model.downloads.activeRows.first?.isFailed == true }
+        note("us task: \(describeRows(model))")
+
+        // 4. 管理账号页
+        model.accounts.showingManager = true
+        await sleep(1.0)
+        capture("p5-07-manage-accounts", dir: dir)
+        model.accounts.showingManager = false
+        await sleep(0.8)
+
+        // 5. 手动切换回日本账号（Cookie 已保存，不需要验证码），遮罩显示进度
+        if let jp = model.accounts.accounts.first(where: { $0.email == "jp@example.test" }) {
+            model.page = .search
+            model.switchAccount(to: jp)
+            await wait(timeout: 10) { model.accounts.isOverlayVisible }
+            await sleep(0.5)
+            note("overlay: \(model.accounts.switchProgress.map(AccountsViewModel.statusText) ?? "-")")
+            capture("p5-08-switch-overlay", dir: dir)
+            await wait(timeout: 20) { model.account?.email == jp.email && !model.accounts.isSwitching }
+            await sleep(0.8)
+            note("after switch to jp: search.phase=\(model.search.phase)")
+            capture("p5-09-switched-to-jp", dir: dir)
+        }
+
+        // 6. 模拟美国账号的受信任 Cookie 过期，然后重试美国账号的任务 → 队列自动切换（遮罩里输入验证码）→ 开始下载
+        if let us = model.accounts.accounts.first(where: { $0.email == "us@example.test" }) {
+            let archive = model.services.paths.accountsDirectory.appendingPathComponent(us.id.uuidString).appendingPathComponent("cookies")
+            try? FileManager.default.removeItem(at: archive)
+        }
+        model.page = .downloads
+        if let id = model.downloads.activeRows.first?.id { model.downloads.resume(id) }
+        await wait(timeout: 20) { model.accounts.switchProgress?.phase == .needsTwoFactor }
+        await sleep(0.6)
+        note("queue auto-switch: \(describeRows(model)) overlay=\(model.accounts.switchProgress.map(AccountsViewModel.statusText) ?? "-")")
+        capture("p5-10-queue-switch-2fa", dir: dir)
+        model.accounts.code = "123456"
+        model.accounts.submitCode()
+        await wait(timeout: 20) { model.downloads.activeRows.first?.status == .running }
+        await sleep(1.5)
+        note("after auto-switch: account=\(model.account?.email ?? "-") rows=\(describeRows(model))")
+        capture("p5-11-downloading-as-us", dir: dir)
+
+        model.page = .search
+        await sleep(0.8)
+        capture("p5-12-search-after-auto-switch", dir: dir)
+        note("final accounts=[\(accountsLine())]")
     }
 
     private static func describeRows(_ model: AppModel) -> String {

@@ -1,0 +1,15 @@
+[21:19:57] brand font loaded: true
+[21:19:57] mode=p5Accounts hasCompletedFirstLogin=false
+[21:19:58] start: account=signedOut accounts=[]
+[21:20:02] after jp login: account=jp@example.test accounts=[jp:jp@example.test:saved*]
+[21:20:03] search as jp → ["マンガ図書館（日本区）", "乗換案内（日本区）"]
+[21:20:04] add sheet mode=addAccount step=credentials
+[21:20:09] after us add: account=us@example.test search.phase=accountChanged("美国") accounts=[jp:jp@example.test:saved, us:us@example.test:saved*]
+[21:20:09] search as us → ["Stream TV (US Store)", "Credit Union (US Store)"]
+[21:20:10] us task: Stream TV (US Store)=失败：网络连接失败，无法访问 Apple 服务器。请检查网络或代理设置后重试。在中国大陆网络下，Apple 的购买/下载域名（如 p*-buy.itunes.apple.com）可能无法直连，首次使用还需访问 files.pythonhosted.org 与 swcdn.apple.com 下载组件，可尝试切换网络或使用代理。 retry=true raw=Get "https://p25-buy.itunes.apple.com/x": unexpected EOF output=Stream TV (US Store)_8.4.1.ipa
+[21:20:12] overlay: 正在登录 日本 账号
+[21:20:14] after switch to jp: search.phase=accountChanged("日本")
+[21:20:17] queue auto-switch: Stream TV (US Store)=正在切换到 美国 账号… retry=false raw=- output=Stream TV (US Store)_8.4.1.ipa overlay=美国 账号需要验证码
+[21:20:19] after auto-switch: account=us@example.test rows=Stream TV (US Store)=正在下载 retry=false raw=- output=Stream TV (US Store)_8.4.1.ipa
+[21:20:20] final accounts=[jp:jp@example.test:saved, us:us@example.test:saved*]
+[21:20:20] done

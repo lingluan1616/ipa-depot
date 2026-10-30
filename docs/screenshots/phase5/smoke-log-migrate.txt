@@ -1,0 +1,4 @@
+[21:19:04] brand font loaded: true
+[21:19:04] mode=p5Migrate hasCompletedFirstLogin=true
+[21:19:06] migrate: account=old@example.test accounts=["old@example.test:other:missing"] prompt=old@example.test
+[21:19:07] done
