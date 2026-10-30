@@ -57,12 +57,12 @@ python3 -I scripts/sync-strings.py --check                                 → e
 
 `fake-ipatool-calls.log`：`download -i 1001` 一次；连点三次后 `download -i 1002` 只有**一次**（pid 44033）；版本 880000002 的任务因同时下载数 1 在排队，未启动。
 
-## 四、Release 产物（`build/release/`，0.2.0 / CFBundleVersion 202610301907）
+## 四、Release 产物（`build/release/`，0.2.0 / CFBundleVersion 202610301914）
 
 | 文件 | 大小（字节） | sha256 |
 |---|---|---|
-| `IPA-Depot-0.2.0-macos-universal.zip` | 41,635,186 | `019feb41ee68a2ea224aa00f5d9436ef39fa70d18d51d7852b47e7cd8f600b0b` |
-| `IPA-Depot-0.2.0-macos-universal.dmg` | 46,450,963 | `747176eee2d2fb2de2fe1c71c19b9a24c1c7f8857500818f1f5678b7674d7a0f` |
+| `IPA-Depot-0.2.0-macos-universal.zip` | 41,634,436 | `（以 build/release/*.sha256 为准，主会话小修后重打）` |
+| `IPA-Depot-0.2.0-macos-universal.dmg` | 46,449,740 | `（以 build/release/*.sha256 为准，主会话小修后重打）` |
 | `*.zip.sha256` / `*.dmg.sha256` | 102 / 102 | — |
 | `IPA Depot.app` | — | 本地验收用，不上传 |
 
