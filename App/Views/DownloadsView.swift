@@ -11,14 +11,23 @@ struct DownloadsView: View {
                 ContentUnavailableView {
                     Label("没有下载任务", systemImage: "arrow.down.circle")
                 } description: {
-                    Text("在搜索页点「下载最新版」，或在历史版本里选择一个版本下载。任务会依次进行，同一时间只下载一个。")
+                    Text("在搜索页点「下载最新版」，或在历史版本里选择一个版本下载。任务按加入顺序进行，同时下载数可在设置中调整（1～3 个）。")
                 }
             } else {
                 List {
                     if !downloads.activeRows.isEmpty {
-                        Section("进行中") {
+                        Section {
                             ForEach(downloads.activeRows) { row in
                                 DownloadRowView(row: row)
+                            }
+                        } header: {
+                            HStack {
+                                Text("进行中")
+                                Spacer()
+                                Text("正在下载 \(downloads.runningCount) / 同时 \(model.settings.maxConcurrentDownloads) 个")
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .help("同时下载数可在设置中调整")
                             }
                         }
                     }

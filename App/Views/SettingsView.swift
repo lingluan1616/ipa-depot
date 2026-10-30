@@ -32,6 +32,17 @@ struct SettingsView: View {
                         Button("选择…") { chooseDirectory() }
                     }
                 }
+                Picker("同时下载数", selection: Binding(get: { settings.maxConcurrentDownloads },
+                                                     set: { settings.setMaxConcurrentDownloads($0) })) {
+                    ForEach(SettingsViewModel.maxConcurrentDownloadsOptions, id: \.self) { n in
+                        Text(verbatim: "\(n)").tag(n)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+                Text("同时下载只对同一个账号生效：属于其他账号的任务会等当前账号的任务全部完成后再切换账号开始。调小不会打断正在进行的下载。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
                     Text("文件名格式：名称_版本.ipa；同名文件已存在时自动加序号。")
                         .font(.caption)

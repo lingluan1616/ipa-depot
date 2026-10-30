@@ -73,6 +73,14 @@ final class AppModel {
         signedIn = { [weak self] in self?.account != nil }
         downloads.onRecord = { [weak history] record in history?.add(record) }
         settings.onCacheCleared = { [weak artwork] in artwork?.reset() }
+        let queue = services.queue
+        // 执行时读最新值：连续快速切换时以最后一次为准
+        settings.onMaxConcurrentDownloadsChanged = { [weak settings] _ in
+            Task { @MainActor in
+                guard let value = settings?.maxConcurrentDownloads else { return }
+                await queue.setMaxConcurrent(value)
+            }
+        }
         accounts.onSwitched = { [weak self] record, previous, _ in self?.accountSwitched(to: record, from: previous) }
         accounts.onFailed = { [weak self] progress, error in self?.accountSwitchFailed(progress, error: error) }
         accounts.onAddProgress = { [weak self] progress in self?.login?.applySwitchProgress(progress) }
@@ -94,6 +102,7 @@ final class AppModel {
     func bootstrap() async {
         accounts.startObserving()
         await services.queue.setAccountSwitching(services.switcher)
+        await services.queue.setMaxConcurrent(settings.maxConcurrentDownloads)
         observeTermination()
         if hasCompletedFirstLogin {
             await refreshAccount()
@@ -105,7 +114,7 @@ final class AppModel {
         downloads.startObserving()
     }
 
-    /// App 退出时：把队列按暂停写盘，并终止正在运行的下载子进程（`.tmp` 保留，下次续传）。
+    /// App 退出时：把队列按暂停写盘，并终止全部正在运行的下载子进程（`.tmp` 保留，下次续传）。
     func prepareForTermination() {
         downloads.persistNow()
         services.queue.terminateRunningTasks()

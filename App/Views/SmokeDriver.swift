@@ -104,6 +104,8 @@ enum SmokeDriver {
     /// - `p4Fail`：加入一个下载任务，配合「第一次 download 即失败」的假 ipatool，查看失败态，然后退出；
     /// - `p4Restore`：重启后查看恢复的失败任务（暂停 + 上次失败原因），点重试（假 ipatool 第二次只 sleep），然后退出；
     /// - `p5Accounts`：多账号完整流程（见 `runPhase5`）。
+    /// - `p6Browse`：浏览地区（见 `runPhase6`）；
+    /// - `p7Concurrent`：同时下载数（见 `runPhase7`）。
     private static func runPhase3(mode: String, model: AppModel, dir: URL, note: (String) -> Void) async {
         func describe(_ state: AppModel.AccountState) -> String {
             switch state {
@@ -199,6 +201,8 @@ enum SmokeDriver {
             await sleep(0.8)
         case "p6Browse":
             await runPhase6(model: model, dir: dir, note: note)
+        case "p7Concurrent":
+            await runPhase7(model: model, dir: dir, note: note)
         default:
             note("unknown mode")
         }
@@ -423,6 +427,106 @@ enum SmokeDriver {
         model.page = .search
         model.search.setBrowseRegion(.followAccount)
         note("final accounts=[\(accountsLine())]")
+    }
+
+    /// 阶段七冒烟（配合假 ipatool，下载为慢速假进度）：同时下载数 3 → 三条同时进行、第四条排队；
+    /// 同时下载数 1 → 只有一条进行中；两个账号的任务混排时只补位当前账号的任务。结束时取消全部任务，
+    /// 原本没有 `maxConcurrentDownloads` 偏好时删除，不留在偏好里。
+    private static func runPhase7(model: AppModel, dir: URL, note: (String) -> Void) async {
+        let key = SettingsViewModel.maxConcurrentDownloadsKey
+        let hadKey = UserDefaults.standard.persistentDomain(forName: "app.ipadepot.mac")?[key] != nil
+        defer {
+            if !hadKey { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        func rowsLine() -> String {
+            model.downloads.activeRows.map { "\($0.context.name)[\($0.regionTitle ?? "-")]=\($0.statusText)" }
+                .joined(separator: " | ")
+        }
+        func app(_ id: Int64, _ name: String) -> DownloadContext {
+            DownloadContext(app: AppSummary(id: id, bundleID: "smoke.p7.\(id)", name: name, version: "1.\(id % 10).0",
+                                            price: 0, platforms: ["iphone"]),
+                            platform: .iphone, externalVersionID: nil, versionLabel: nil)
+        }
+        func cancelAll() async {
+            for row in model.downloads.activeRows { model.downloads.cancel(row.id) }
+            await wait(timeout: 15) { model.downloads.activeRows.isEmpty }
+            await sleep(0.8)
+        }
+        func login(_ email: String, _ password: String, region: AccountRegion, code: String?) async {
+            if model.login == nil { model.beginLogin() }
+            await sleep(0.8)
+            guard let session = model.login else { note("no login sheet"); return }
+            if session.step == .intro { session.continueFromIntro() }
+            session.appleID = email
+            session.password = password
+            session.region = region
+            let submit = Task { await session.submitCredentials() }
+            if let code {
+                await wait(timeout: 20) { session.step == .twoFactor }
+                session.code = code
+                session.submitCode()
+            }
+            await submit.value
+            await wait(timeout: 20) { model.login == nil }
+            await sleep(0.5)
+        }
+
+        await sleep(1.0)
+        await login("jp@example.test", "jp-pass", region: .japan, code: nil)
+        note("after jp login: active=\(model.accounts.active?.email ?? "-")")
+
+        // 1. 设置页：同时下载数 = 3
+        model.page = .settings
+        model.settings.setMaxConcurrentDownloads(3)
+        await sleep(1.2)
+        note("settings maxConcurrent=\(model.settings.maxConcurrentDownloads)")
+        capture("p7-01-settings-concurrency", dir: dir)
+
+        // 2. 上限 3：加入四个任务 → 三条同时进行中，第四条排队
+        model.page = .downloads
+        for (id, name) in [(7001, "Alpha Player"), (7002, "Beta Notes"), (7003, "Gamma Maps"), (7004, "Delta Camera")] {
+            _ = await model.downloads.enqueue(app(Int64(id), name))
+        }
+        await wait(timeout: 15) { model.downloads.runningCount == 3 }
+        await wait(timeout: 15) { model.downloads.activeRows.prefix(3).allSatisfy { $0.progress != nil } }
+        await sleep(2.5)
+        note("limit 3: running=\(model.downloads.runningCount) rows=\(rowsLine())")
+        capture("p7-02-limit3-three-running", dir: dir)
+
+        // 3. 运行中调到 1：不打断已在运行的三条
+        model.settings.setMaxConcurrentDownloads(1)
+        await sleep(1.5)
+        note("lowered to 1 while running: running=\(model.downloads.runningCount) rows=\(rowsLine())")
+
+        // 4. 上限 1：重新加入三个任务 → 只有一条进行中
+        await cancelAll()
+        for (id, name) in [(7011, "Echo Radio"), (7012, "Foxtrot Mail"), (7013, "Golf Weather")] {
+            _ = await model.downloads.enqueue(app(Int64(id), name))
+        }
+        await wait(timeout: 15) { model.downloads.runningCount == 1 }
+        await wait(timeout: 15) { model.downloads.activeRows.first?.progress != nil }
+        await sleep(2.5)
+        note("limit 1: running=\(model.downloads.runningCount) rows=\(rowsLine())")
+        capture("p7-03-limit1-one-running", dir: dir)
+
+        // 5. 两个账号混排（上限 3）：添加美国账号（2FA）后当前为美国；美国 / 日本 / 美国三个任务 → 两条美国同时进行，日本排队
+        await cancelAll()
+        model.settings.setMaxConcurrentDownloads(3)
+        await login("us@example.test", "us-pass", region: .unitedStates, code: "123456")
+        note("after us add: active=\(model.accounts.active?.email ?? "-")")
+        let jpID = model.accounts.accounts.first { $0.email == "jp@example.test" }?.id
+        model.page = .downloads
+        _ = await model.downloads.enqueue(app(7021, "Hotel Stream"))
+        _ = await model.downloads.enqueue(app(7022, "India Manga"), accountID: jpID)
+        _ = await model.downloads.enqueue(app(7023, "Juliet Bank"))
+        await wait(timeout: 15) { model.downloads.runningCount == 2 }
+        await wait(timeout: 15) { model.downloads.activeRows.prefix(2).allSatisfy { $0.progress != nil } }
+        await sleep(2.5)
+        note("mixed accounts: running=\(model.downloads.runningCount) rows=\(rowsLine())")
+        capture("p7-04-mixed-accounts-same-account-only", dir: dir)
+
+        await cancelAll()
+        note("final rows=\(model.downloads.activeRows.count) maxConcurrent=\(model.settings.maxConcurrentDownloads)")
     }
 
     private static func describeRows(_ model: AppModel) -> String {

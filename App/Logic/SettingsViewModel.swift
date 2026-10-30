@@ -14,6 +14,9 @@ final class SettingsViewModel {
     }
 
     static let downloadDirectoryKey = "downloadDirectory"
+    /// 同时下载数（1 / 2 / 3，默认 1）。
+    static let maxConcurrentDownloadsKey = "maxConcurrentDownloads"
+    static let maxConcurrentDownloadsOptions = Array(DownloadQueue.concurrencyRange)
 
     private(set) var downloadDirectory: URL
     private(set) var versionsCacheSize: Int64 = 0
@@ -22,11 +25,15 @@ final class SettingsViewModel {
     private(set) var ipatoolVersion: String?
     private(set) var ipatoolVersionError: String?
     private(set) var updateState: UpdateState = .idle
+    /// 同时下载数（1...3）。改动即时生效：调小时不打断正在运行的任务，只是不再补位。
+    private(set) var maxConcurrentDownloads: Int
 
     let appVersion: String
     let owner: String?
 
     @ObservationIgnored var onCacheCleared: (() -> Void)?
+    /// 同时下载数变化时调用（AppModel 接到下载队列的 `setMaxConcurrent`）。
+    @ObservationIgnored var onMaxConcurrentDownloadsChanged: ((Int) -> Void)?
     @ObservationIgnored private let defaults: KeyValueStoring
     @ObservationIgnored private let paths: AppPaths
     @ObservationIgnored private let ipatoolVersionProvider: @Sendable () async throws -> String
@@ -49,6 +56,23 @@ final class SettingsViewModel {
         } else {
             downloadDirectory = Self.defaultDownloadDirectory
         }
+        maxConcurrentDownloads = Self.clampConcurrency(defaults.integer(forKey: Self.maxConcurrentDownloadsKey))
+    }
+
+    /// 钳到 1...3；未设置（0）或异常值按默认 1 处理（超过 3 按 3）。
+    static func clampConcurrency(_ value: Int) -> Int {
+        let range = DownloadQueue.concurrencyRange
+        return value < range.lowerBound ? range.lowerBound : min(value, range.upperBound)
+    }
+
+    // MARK: - 同时下载数
+
+    func setMaxConcurrentDownloads(_ value: Int) {
+        let clamped = Self.clampConcurrency(value)
+        guard clamped != maxConcurrentDownloads else { return }
+        maxConcurrentDownloads = clamped
+        defaults.set(clamped, forKey: Self.maxConcurrentDownloadsKey)
+        onMaxConcurrentDownloadsChanged?(clamped)
     }
 
     /// 默认 `~/Downloads/IPA Depot`。

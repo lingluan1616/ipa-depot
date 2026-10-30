@@ -71,15 +71,22 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
     }
 }
 
-/// 下载队列：同一时刻只运行一个任务，其余排队。
+/// 下载队列：同一时刻最多运行 `maxConcurrent` 个任务（1...3，默认 1），其余排队。
 ///
-/// - `add`：入队（排在末尾），空闲时立即开始；
+/// 多槽位规则（ipatool 只有一个钥匙串槽位与一份 Cookie，所以**同时运行的任务必须属于同一个账号**）：
+/// - 没有任务在运行时，按先进先出取队首；队首属于另一个账号时先切换账号，切换期间不补位；
+/// - 已有任务在运行时，只补位「不需要切换账号」的排队任务（属于当前账号或无账号的旧任务），仍按先进先出；
+/// - 需要切换账号的任务等当前账号的任务全部结束（且没有切换在进行）才开始切换；切换完成后再按新账号补位；
+/// - 调小上限不打断已在运行的任务，只是之后不再补位，直到运行数降到上限以下。
+///
+/// - `add`：入队（排在末尾），有空槽时立即开始；
+/// - `setMaxConcurrent(_:)`：设置同时下载数（钳到 1...3），调大时立即补位；
 /// - `pause`：运行中 → 终止子进程，变为 `.paused`；排队中 → 直接 `.paused`（跳过）；
 /// - `resume`：`.paused` / `.failed` → 重新排队（同参数重跑，ipatool 依靠 `.tmp` 续传）；
 /// - `cancel`：停止并**从队列移除**，同时删除 `<目标>.tmp` 残留；
 /// - `remove`：移除已完成 / 失败 / 暂停的条目（运行中的请用 `cancel`）；
 /// - `restore`：把上次退出时保存的任务以 `.paused` 放回队列（不自动开始；上次失败的保留失败原因）；
-/// - `terminateRunningTasks()`：App 退出时同步终止正在运行的子进程（不等待 actor）；
+/// - `terminateRunningTasks()`：App 退出时同步终止**全部**正在运行的子进程（不等待 actor）；
 /// - `updates()`：订阅快照流，订阅时立即收到当前快照；
 /// - `setAccountSwitching(_:)`：设置后，任务的 `accountID` 不是当前账号时先切换账号再下载（切换失败任务置失败）。
 public actor DownloadQueue {
@@ -97,11 +104,17 @@ public actor DownloadQueue {
 
     private let makeTask: TaskFactory
     private var entries: [Entry] = []
-    private var runningID: UUID?
+    /// 占用槽位的任务（运行中 / 停止中 / 校验中 / 正在为它切换账号），按开始顺序。
+    private var runningIDs: [UUID] = []
+    /// 同时下载数上限（1...3）。
+    private var maxConcurrent = 1
     private var subscribers: [UUID: AsyncStream<[DownloadQueueItem]>.Continuation] = [:]
     private var accountSwitching: DownloadAccountSwitching?
-    /// 正在运行的任务（加锁，供 App 退出时在主线程同步终止）。
+    /// 正在运行的全部任务（加锁，供 App 退出时在主线程同步终止）。
     private nonisolated let runningTask = RunningTaskBox()
+
+    /// 同时下载数的允许范围。
+    public static let concurrencyRange = 1...3
 
     public init(makeTask: @escaping TaskFactory) {
         self.makeTask = makeTask
@@ -117,8 +130,14 @@ public actor DownloadQueue {
 
     public func item(_ id: UUID) -> DownloadQueueItem? { entries.first { $0.item.id == id }?.item }
 
-    /// 正在运行（含停止中 / 校验中）的条目。
-    public var activeItemID: UUID? { runningID }
+    /// 最早开始、仍在运行（含停止中 / 校验中 / 切换账号中）的条目（兼容单槽位时代的接口）。
+    public var activeItemID: UUID? { runningIDs.first }
+
+    /// 全部占用槽位的条目，按开始顺序。
+    public var activeItemIDs: [UUID] { runningIDs }
+
+    /// 当前的同时下载数上限。
+    public var maxConcurrentDownloads: Int { maxConcurrent }
 
     /// 订阅快照。流在订阅时先发当前快照，之后每次变化发一次。
     public func updates() -> AsyncStream<[DownloadQueueItem]> {
@@ -141,6 +160,12 @@ public actor DownloadQueue {
         accountSwitching = switching
     }
 
+    /// 设置同时下载数（钳到 1...3）。调大时立即补位；调小时不打断正在运行的任务，只是不再补位。
+    public func setMaxConcurrent(_ n: Int) {
+        maxConcurrent = min(max(n, Self.concurrencyRange.lowerBound), Self.concurrencyRange.upperBound)
+        pump()
+    }
+
     @discardableResult
     public func add(_ request: DownloadRequest, id: UUID = UUID()) -> UUID {
         entries.append(Entry(item: DownloadQueueItem(id: id, request: request), task: makeTask(request)))
@@ -160,10 +185,10 @@ public actor DownloadQueue {
         publish()
     }
 
-    /// App 即将退出：终止正在运行的下载子进程（等同暂停，`.tmp` 保留以便下次续传），
+    /// App 即将退出：终止全部正在运行的下载子进程（等同暂停，`.tmp` 保留以便下次续传），
     /// 并且之后不再启动任何排队任务（否则退出途中会拉起下一个下载、留下孤儿进程）。可在任意线程同步调用。
     public nonisolated func terminateRunningTasks() {
-        runningTask.shutDown()?.pause()
+        for task in runningTask.shutDown() { task.pause() }
     }
 
     public func pause(_ id: UUID) {
@@ -202,7 +227,7 @@ public actor DownloadQueue {
 
     public func cancel(_ id: UUID) {
         guard let index = index(of: id) else { return }
-        if runningID == id {
+        if runningIDs.contains(id) {
             entries[index].cancelRequested = true
             entries[index].item.status = .stopping
             if !entries[index].switching {
@@ -218,7 +243,7 @@ public actor DownloadQueue {
     }
 
     public func remove(_ id: UUID) {
-        guard runningID != id, let index = index(of: id) else { return }
+        guard !runningIDs.contains(id), let index = index(of: id) else { return }
         entries.remove(at: index)
         publish()
     }
@@ -238,44 +263,63 @@ public actor DownloadQueue {
         for continuation in subscribers.values { continuation.yield(snapshot) }
     }
 
-    /// 空闲时启动下一个排队项。
+    /// 是否需要先切换账号才能开始该任务（无账号的旧任务、未设置切换器时一律不需要）。
+    private func needsSwitch(_ entry: Entry) -> Bool {
+        guard let accountID = entry.item.request.accountID, let switching = accountSwitching else { return false }
+        return !switching.isCurrentAccount(accountID)
+    }
+
+    /// 有空槽时补位，直到达到上限或没有可启动的排队项（规则见类型说明）。
     private func pump() {
-        guard runningID == nil, !runningTask.isShutDown,
-              let index = entries.firstIndex(where: { $0.item.status == .queued }) else { return }
-        let id = entries[index].item.id
-        let task = entries[index].task
-        runningID = id
-        if let accountID = entries[index].item.request.accountID, let switching = accountSwitching,
-           !switching.isCurrentAccount(accountID) {
-            entries[index].item.status = .switchingAccount
-            entries[index].item.lastLog = nil
-            entries[index].switching = true
-            publish()
-            Task {
-                do {
-                    try await switching.switchForDownload(to: accountID)
-                    self.afterSwitch(id, error: nil)
-                } catch {
-                    let failure = (error as? IpatoolError)
-                        ?? IpatoolError(kind: .accountSwitchFailed, raw: error.localizedDescription)
-                    self.afterSwitch(id, error: failure)
-                }
+        while runningIDs.count < maxConcurrent, !runningTask.isShutDown {
+            // 正在切换账号：切换完成前不补位
+            if entries.contains(where: \.switching) { return }
+            let candidate: Int?
+            if runningIDs.isEmpty {
+                candidate = entries.firstIndex { $0.item.status == .queued }
+            } else {
+                candidate = entries.firstIndex { $0.item.status == .queued && !needsSwitch($0) }
             }
-            return
+            guard let index = candidate else { return }
+            let id = entries[index].item.id
+            runningIDs.append(id)
+            if let accountID = entries[index].item.request.accountID, let switching = accountSwitching,
+               !switching.isCurrentAccount(accountID) {
+                // 只有在没有任何任务运行时才会走到这里
+                entries[index].item.status = .switchingAccount
+                entries[index].item.lastLog = nil
+                entries[index].switching = true
+                publish()
+                Task {
+                    do {
+                        try await switching.switchForDownload(to: accountID)
+                        self.afterSwitch(id, error: nil)
+                    } catch {
+                        let failure = (error as? IpatoolError)
+                            ?? IpatoolError(kind: .accountSwitchFailed, raw: error.localizedDescription)
+                        self.afterSwitch(id, error: failure)
+                    }
+                }
+                return
+            }
+            start(index: index, id: id, task: entries[index].task)
         }
-        start(index: index, id: id, task: task)
+    }
+
+    private func releaseSlot(_ id: UUID) {
+        runningIDs.removeAll { $0 == id }
     }
 
     /// 账号切换结束：成功则开始下载（期间被暂停 / 取消则相应处理），失败则任务置失败。
     private func afterSwitch(_ id: UUID, error: IpatoolError?) {
         guard let index = index(of: id) else {
-            if runningID == id { runningID = nil }
+            releaseSlot(id)
             pump()
             return
         }
         entries[index].switching = false
         if entries[index].cancelRequested {
-            runningID = nil
+            releaseSlot(id)
             let request = entries[index].item.request
             entries.remove(at: index)
             Self.removeTemporaryFile(for: request)
@@ -285,14 +329,14 @@ public actor DownloadQueue {
         }
         if entries[index].pauseRequested {
             entries[index].pauseRequested = false
-            runningID = nil
+            releaseSlot(id)
             entries[index].item.status = .paused
             publish()
             pump()
             return
         }
         if let error {
-            runningID = nil
+            releaseSlot(id)
             let failure = error.kind == .accountSwitchFailed ? error
                 : IpatoolError(kind: .accountSwitchFailed, raw: error.raw.isEmpty ? error.message : error.raw,
                                exitCode: error.exitCode)
@@ -303,16 +347,18 @@ public actor DownloadQueue {
             return
         }
         guard !runningTask.isShutDown else {
-            runningID = nil
+            releaseSlot(id)
             entries[index].item.status = .paused
             publish()
             return
         }
         start(index: index, id: id, task: entries[index].task)
+        // 切换完成：按新账号补位
+        pump()
     }
 
     private func start(index: Int, id: UUID, task: DownloadTasking) {
-        runningTask.set(task)
+        runningTask.insert(task, for: id)
         entries[index].item.status = .running
         publish()
 
@@ -339,7 +385,7 @@ public actor DownloadQueue {
     }
 
     private func handle(_ event: DownloadEvent, for id: UUID) {
-        guard let index = index(of: id), runningID == id else { return }
+        guard let index = index(of: id), runningIDs.contains(id) else { return }
         var item = entries[index].item
         switch event {
         case .started:
@@ -359,9 +405,9 @@ public actor DownloadQueue {
     }
 
     private func finish(_ id: UUID, outcome: DownloadOutcome) {
-        if runningID == id {
-            runningID = nil
-            runningTask.set(nil)
+        if runningIDs.contains(id) {
+            releaseSlot(id)
+            runningTask.remove(id)
         }
         guard let index = index(of: id) else { pump(); return }
         let cancelRequested = entries[index].cancelRequested
@@ -401,21 +447,25 @@ public actor DownloadQueue {
     }
 }
 
-/// 加锁保存当前运行任务的引用与「正在退出」标志。
+/// 加锁保存全部运行中任务的引用与「正在退出」标志。
 final class RunningTaskBox: @unchecked Sendable {
     private let lock = NSLock()
-    private var task: DownloadTasking?
+    private var tasks: [UUID: DownloadTasking] = [:]
     private var shuttingDown = false
 
-    func set(_ task: DownloadTasking?) { lock.withLock { self.task = task } }
+    func insert(_ task: DownloadTasking, for id: UUID) { lock.withLock { tasks[id] = task } }
+
+    func remove(_ id: UUID) { lock.withLock { tasks[id] = nil } }
+
+    var count: Int { lock.withLock { tasks.count } }
 
     var isShutDown: Bool { lock.withLock { shuttingDown } }
 
-    /// 置「正在退出」并返回当前运行的任务。
-    func shutDown() -> DownloadTasking? {
+    /// 置「正在退出」并返回全部运行中的任务。
+    func shutDown() -> [DownloadTasking] {
         lock.withLock {
             shuttingDown = true
-            return task
+            return Array(tasks.values)
         }
     }
 }

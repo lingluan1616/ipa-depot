@@ -41,6 +41,8 @@ protocol DownloadQueueing: Sendable {
     func terminateRunningTasks()
     /// 下载前的账号切换（任务属于另一个账号时先切换）。
     func setAccountSwitching(_ switching: DownloadAccountSwitching?) async
+    /// 同时下载数（1...3）；调小时不打断正在运行的任务。
+    func setMaxConcurrent(_ n: Int) async
 }
 
 protocol UpdateChecking: Sendable {
@@ -51,6 +53,8 @@ protocol UpdateChecking: Sendable {
 protocol KeyValueStoring: AnyObject {
     func string(forKey defaultName: String) -> String?
     func bool(forKey defaultName: String) -> Bool
+    /// 整数值（不存在或不是数字时为 0）。
+    func integer(forKey defaultName: String) -> Int
     func set(_ value: Any?, forKey defaultName: String)
 }
 

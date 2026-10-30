@@ -163,6 +163,7 @@ final class MemoryDefaults: KeyValueStoring {
     var values: [String: Any] = [:]
     func string(forKey defaultName: String) -> String? { values[defaultName] as? String }
     func bool(forKey defaultName: String) -> Bool { values[defaultName] as? Bool ?? false }
+    func integer(forKey defaultName: String) -> Int { values[defaultName] as? Int ?? 0 }
     func set(_ value: Any?, forKey defaultName: String) { values[defaultName] = value }
 }
 

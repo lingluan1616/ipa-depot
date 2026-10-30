@@ -210,7 +210,13 @@ final class DownloadsViewModel {
         return catalogCountry.map(AccountRegion.title(forCode:))
     }
 
-    var activeRows: [DownloadRow] { rows.filter { !$0.status.isFinished } }
+    /// 未完成的任务：正在下载 / 校验 / 切换账号的排在前面（同时下载多个时聚在一起），其余保持队列顺序。
+    var activeRows: [DownloadRow] {
+        let unfinished = rows.filter { !$0.status.isFinished }
+        return unfinished.filter(\.status.isActive) + unfinished.filter { !$0.status.isActive }
+    }
+    /// 正在下载 / 校验 / 切换账号的任务数。
+    var runningCount: Int { items.filter(\.status.isActive).count }
     var completedRows: [DownloadRow] { rows.filter { $0.status.isFinished } }
     var activeCount: Int { activeRows.count }
     /// 是否有任务正在下载 / 校验 / 为下载切换账号（此时不允许手动切换账号）。
