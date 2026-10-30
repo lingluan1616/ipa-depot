@@ -260,7 +260,9 @@ final class DownloadsViewModelTests: VMTestCase {
         let (vm, _, dir) = makeVM(factory)
         let context = DownloadContext(app: app(name: "谜底/黑胶"), platform: .iphone, externalVersionID: nil, versionLabel: "3.8.5")
         _ = await vm.enqueue(context)
-        _ = await vm.enqueue(context)
+        // 阶段八起同一任务会去重：用同版本号标签、不同外部版本 ID 的任务验证文件名避让
+        let other = DownloadContext(app: app(name: "谜底/黑胶"), platform: .iphone, externalVersionID: "1", versionLabel: "3.8.5")
+        _ = await vm.enqueue(other)
         await waitUntil { factory.all.count == 2 }
         XCTAssertEqual(factory.all.map { $0.request.output.lastPathComponent }, ["谜底_黑胶_3.8.5.ipa", "谜底_黑胶_3.8.5 (2).ipa"])
         XCTAssertEqual(factory.all[0].request.output.deletingLastPathComponent().standardizedFileURL, dir.standardizedFileURL)

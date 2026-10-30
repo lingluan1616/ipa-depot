@@ -105,7 +105,8 @@ enum SmokeDriver {
     /// - `p4Restore`：重启后查看恢复的失败任务（暂停 + 上次失败原因），点重试（假 ipatool 第二次只 sleep），然后退出；
     /// - `p5Accounts`：多账号完整流程（见 `runPhase5`）。
     /// - `p6Browse`：浏览地区（见 `runPhase6`）；
-    /// - `p7Concurrent`：同时下载数（见 `runPhase7`）。
+    /// - `p7Concurrent`：同时下载数（见 `runPhase7`）；
+    /// - `p8Dedupe`：下载按钮反馈与重复任务去重（见 `runPhase8`）。
     private static func runPhase3(mode: String, model: AppModel, dir: URL, note: (String) -> Void) async {
         func describe(_ state: AppModel.AccountState) -> String {
             switch state {
@@ -203,6 +204,8 @@ enum SmokeDriver {
             await runPhase6(model: model, dir: dir, note: note)
         case "p7Concurrent":
             await runPhase7(model: model, dir: dir, note: note)
+        case "p8Dedupe":
+            await runPhase8(model: model, dir: dir, note: note)
         default:
             note("unknown mode")
         }
@@ -527,6 +530,88 @@ enum SmokeDriver {
 
         await cancelAll()
         note("final rows=\(model.downloads.activeRows.count) maxConcurrent=\(model.settings.maxConcurrentDownloads)")
+    }
+
+    /// 阶段八冒烟（配合假 ipatool，下载为慢速假进度）：搜索结果行点「下载最新版」→ 立刻「已加入」→ 约 1.5 秒后「已在队列」禁用；
+    /// 同一行连点三次 → 下载页只有一条任务；历史版本页的「下载最新版」与版本行同样显示「已在队列」。结束时取消全部任务。
+    private static func runPhase8(model: AppModel, dir: URL, note: (String) -> Void) async {
+        func phases() -> String {
+            model.search.rows.map { "\($0.name)=\(model.downloadPhase(for: $0))" }.joined(separator: " | ")
+        }
+        func cancelAll() async {
+            for row in model.downloads.activeRows { model.downloads.cancel(row.id) }
+            await wait(timeout: 15) { model.downloads.activeRows.isEmpty }
+            await sleep(0.8)
+        }
+        await sleep(1.0)
+        model.beginLogin()
+        await sleep(0.8)
+        guard let session = model.login else { note("no login sheet"); return }
+        session.continueFromIntro()
+        session.appleID = "jp@example.test"
+        session.password = "jp-pass"
+        session.region = .japan
+        await session.submitCredentials()
+        await wait(timeout: 20) { model.login == nil }
+        await sleep(0.5)
+        note("after jp login: active=\(model.accounts.active?.email ?? "-")")
+
+        // 1. 搜索 → 第一行点「下载最新版」：立刻「已加入」
+        model.page = .search
+        model.search.query = "manga"
+        await model.search.search()
+        await wait(timeout: 10) { model.search.rows.count >= 2 }
+        await sleep(0.8)
+        note("search rows=\(model.search.rows.map { "\($0.name)(\($0.id))" }) phases=\(phases())")
+        guard model.search.rows.count >= 2 else { note("no rows"); return }
+        let first = model.search.rows[0]
+        let second = model.search.rows[1]
+        model.perform(.download(first))
+        await wait(timeout: 2) { model.downloadPhase(for: first) == .justAdded }
+        await sleep(0.3)
+        note("after click: phases=\(phases())")
+        capture("p8-01-search-just-added", dir: dir)
+
+        // 2. 约 1.5 秒后：「已在队列」且禁用
+        await wait(timeout: 5) { model.downloadPhase(for: first) == .inQueue }
+        await sleep(0.6)
+        note("after 1.5s: phases=\(phases()) queue=\(model.downloads.items.count)")
+        capture("p8-02-search-in-queue-disabled", dir: dir)
+
+        // 3. 第二行连点三次（三个并发入队请求）→ 下载页只有一条该 App 的任务
+        await cancelAll()
+        note("after cancel: phases=\(phases())")
+        model.perform(.download(second))
+        model.perform(.download(second))
+        model.perform(.download(second))
+        await wait(timeout: 5) { model.downloads.items.count >= 1 }
+        await sleep(1.0)
+        model.page = .downloads
+        await wait(timeout: 10) { model.downloads.activeRows.first?.progress != nil }
+        await sleep(1.5)
+        note("triple click: items=\(model.downloads.items.count) rows=\(model.downloads.activeRows.map { "\($0.context.name)=\($0.statusText) \($0.output.lastPathComponent)" })")
+        capture("p8-03-triple-click-one-task", dir: dir)
+
+        // 4. 历史版本页：第二行的「下载最新版」已在队列；再下载一个历史版本 → 该行「已加入」→「已在队列」
+        model.page = .search
+        model.searchPath = [second]
+        let versions = model.versionsModel(for: second)
+        await wait(timeout: 15) { versions.phase != .loading }
+        await wait(timeout: 15) { versions.loadedCount >= min(3, versions.rows.count) }
+        if let row = versions.rows.dropFirst().first {
+            _ = await model.downloads.enqueue(versions.context(for: row))
+            await sleep(0.3)
+            note("versions after click: \(row.id)=\(model.downloads.buttonPhase(for: versions.context(for: row)))")
+            await wait(timeout: 5) { model.downloads.buttonPhase(for: versions.context(for: row)) == .inQueue }
+        }
+        await sleep(1.0)
+        note("versions phases: latest=\(model.downloads.buttonPhase(for: versions.context(for: nil))) rows=\(versions.rows.map { "\($0.id)=\(model.downloads.buttonPhase(for: versions.context(for: $0)))" }) queue=\(model.downloads.items.count)")
+        capture("p8-04-versions-in-queue-disabled", dir: dir)
+
+        model.searchPath = []
+        await cancelAll()
+        await sleep(0.5)
+        note("final: items=\(model.downloads.items.count) phases=\(phases())")
     }
 
     private static func describeRows(_ model: AppModel) -> String {

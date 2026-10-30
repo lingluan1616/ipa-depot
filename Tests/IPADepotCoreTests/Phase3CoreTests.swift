@@ -63,7 +63,7 @@ final class DownloadQueueStoreTests: TempDirTestCase {
 
 final class DownloadQueueRestoreTests: TempDirTestCase {
     private func request(_ name: String) -> DownloadRequest {
-        DownloadRequest(appID: 7, externalVersionID: "123", purchase: true,
+        DownloadRequest(appID: testAppID(name), externalVersionID: "123", purchase: true,
                         output: tempDir.appendingPathComponent("\(name).ipa"), platform: "ipad")
     }
 

@@ -31,6 +31,44 @@ public struct DownloadRequest: Sendable, Codable, Hashable {
     }
 }
 
+/// 下载任务的去重键（阶段八）：appID + 外部版本 ID（nil 即最新版）+ 平台 + 账号。
+/// 外部版本 ID 与平台的空字符串视为 nil，平台不区分大小写；`purchase` 与输出路径不参与比较。
+public struct DownloadDedupeKey: Sendable, Hashable {
+    public let appID: Int64
+    public let externalVersionID: String?
+    public let platform: String?
+    /// nil = 当前账号（旧数据或未绑定账号）。
+    public let accountID: UUID?
+
+    public init(appID: Int64, externalVersionID: String?, platform: String?, accountID: UUID?) {
+        self.appID = appID
+        let version = externalVersionID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.externalVersionID = version.isEmpty ? nil : version
+        let platform = platform?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        self.platform = platform.isEmpty ? nil : platform
+        self.accountID = accountID
+    }
+
+    /// 是否是同一个下载任务。账号：两边相同即匹配；一边为 nil（= 当前账号）时，另一边是当前账号才匹配。
+    public func matches(_ other: DownloadDedupeKey, isCurrentAccount: (UUID) -> Bool) -> Bool {
+        guard appID == other.appID, externalVersionID == other.externalVersionID, platform == other.platform else {
+            return false
+        }
+        switch (accountID, other.accountID) {
+        case (nil, nil): return true
+        case let (lhs?, rhs?): return lhs == rhs
+        case let (nil, id?), let (id?, nil): return isCurrentAccount(id)
+        }
+    }
+}
+
+extension DownloadRequest {
+    /// 去重键（见 `DownloadDedupeKey`）。
+    public var dedupeKey: DownloadDedupeKey {
+        DownloadDedupeKey(appID: appID, externalVersionID: externalVersionID, platform: platform, accountID: accountID)
+    }
+}
+
 public struct DownloadResult: Sendable, Equatable {
     public let fileURL: URL
     public let purchased: Bool

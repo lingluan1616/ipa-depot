@@ -44,6 +44,14 @@ public enum DownloadItemStatus: Sendable, Equatable {
         if case .completed = self { return true }
         return false
     }
+
+    /// 未结束（阶段八去重用）：排队 / 切换账号 / 下载中（含停止中、校验中）/ 已暂停。已完成与失败不算；取消的会被移出队列。
+    public var isUnfinished: Bool {
+        switch self {
+        case .queued, .switchingAccount, .running, .stopping, .verifying, .paused: return true
+        case .completed, .failed: return false
+        }
+    }
 }
 
 /// 队列中的一项（对外发布的快照）。
@@ -79,7 +87,7 @@ public struct DownloadQueueItem: Sendable, Equatable, Identifiable {
 /// - 需要切换账号的任务等当前账号的任务全部结束（且没有切换在进行）才开始切换；切换完成后再按新账号补位；
 /// - 调小上限不打断已在运行的任务，只是之后不再补位，直到运行数降到上限以下。
 ///
-/// - `add`：入队（排在末尾），有空槽时立即开始；
+/// - `add` / `addDeduplicated`：入队（排在末尾），有空槽时立即开始；已有未结束的同一任务时不新建（阶段八去重）；
 /// - `setMaxConcurrent(_:)`：设置同时下载数（钳到 1...3），调大时立即补位；
 /// - `pause`：运行中 → 终止子进程，变为 `.paused`；排队中 → 直接 `.paused`（跳过）；
 /// - `resume`：`.paused` / `.failed` → 重新排队（同参数重跑，ipatool 依靠 `.tmp` 续传）；
@@ -166,12 +174,33 @@ public actor DownloadQueue {
         pump()
     }
 
-    @discardableResult
-    public func add(_ request: DownloadRequest, id: UUID = UUID()) -> UUID {
+    /// 入队（去重）：队列里已有「未结束」的同一任务（见 `DownloadDedupeKey`）时不新建，返回已有任务的 id 与 `isNew = false`。
+    /// 已请求取消、正在停止的任务不算（它马上会被移出队列）。
+    public func addDeduplicated(_ request: DownloadRequest, id: UUID = UUID()) -> (id: UUID, isNew: Bool) {
+        if let existing = unfinishedItemID(matching: request) {
+            return (existing, false)
+        }
         entries.append(Entry(item: DownloadQueueItem(id: id, request: request), task: makeTask(request)))
         publish()
         pump()
-        return id
+        return (id, true)
+    }
+
+    /// 入队（同 `addDeduplicated`，只返回任务 id：新建的为 `id`，命中去重时为已有任务的 id）。
+    @discardableResult
+    public func add(_ request: DownloadRequest, id: UUID = UUID()) -> UUID {
+        addDeduplicated(request, id: id).id
+    }
+
+    /// 与该请求是同一任务、且未结束的条目 id（没有为 nil）。
+    public func unfinishedItemID(matching request: DownloadRequest) -> UUID? {
+        let key = request.dedupeKey
+        let switching = accountSwitching
+        let isCurrent: (UUID) -> Bool = { switching?.isCurrentAccount($0) ?? true }
+        return entries.first { entry in
+            !entry.cancelRequested && entry.item.status.isUnfinished
+                && entry.item.request.dedupeKey.matches(key, isCurrentAccount: isCurrent)
+        }?.item.id
     }
 
     /// 恢复上次保存的任务：状态为 `.paused`，等用户点「继续」再用同参数重跑（ipatool 依靠 `.tmp` 续传）。

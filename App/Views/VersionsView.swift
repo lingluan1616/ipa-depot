@@ -45,14 +45,13 @@ struct VersionsView: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
-            Button {
+            DownloadPhaseButton(title: "下载最新版", systemImage: "arrow.down.circle",
+                                phase: model.downloads.buttonPhase(for: versions.context(for: nil)),
+                                disabled: model.account == nil) {
                 Task { await model.downloads.enqueue(versions.context(for: nil)) }
-            } label: {
-                Label("下载最新版", systemImage: "arrow.down.circle")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(model.account == nil)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -80,7 +79,8 @@ struct VersionsView: View {
                 }
             } actions: {
                 if versions.app.isFree {
-                    Button("领取免费许可并下载最新版…") {
+                    DownloadPhaseButton(title: "领取免费许可并下载最新版…",
+                                        phase: model.downloads.buttonPhase(for: versions.context(for: nil))) {
                         model.downloads.requestLicense(for: versions.context(for: nil))
                     }
                 }
@@ -166,10 +166,10 @@ private struct VersionRowView: View {
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            Button("下载") {
+            DownloadPhaseButton(title: "下载", phase: model.downloads.buttonPhase(for: versions.context(for: row)),
+                                disabled: model.account == nil) {
                 Task { await model.downloads.enqueue(versions.context(for: row)) }
             }
-            .disabled(model.account == nil)
         }
         .padding(.vertical, 3)
     }

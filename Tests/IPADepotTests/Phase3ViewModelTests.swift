@@ -155,8 +155,8 @@ final class QueuePersistenceTests: VMTestCase {
         XCTAssertEqual(factory.all[0].request, entry.request)
         XCTAssertEqual(store.load().map(\.id), [entry.id], "进行中的任务仍在 queue.json 里（退出即按暂停恢复）")
 
-        // 同名新任务不会占用已恢复任务的文件名
-        _ = await vm.enqueue(DownloadContext(app: app(), platform: .ipad, externalVersionID: "893783327", versionLabel: "3.8.5"))
+        // 同名新任务不会占用已恢复任务的文件名（阶段八起同一任务会去重，这里用不同外部版本 ID、同版本号标签）
+        _ = await vm.enqueue(DownloadContext(app: app(), platform: .ipad, externalVersionID: "893783328", versionLabel: "3.8.5"))
         await waitUntil { factory.all.count == 2 }
         XCTAssertEqual(factory.all[1].request.output.lastPathComponent, "谜底黑胶_3.8.5 (2).ipa")
     }

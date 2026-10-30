@@ -6,7 +6,7 @@ import XCTest
 
 final class FailedDownloadQueueTests: TempDirTestCase {
     private func request(_ name: String) -> DownloadRequest {
-        DownloadRequest(appID: 9, externalVersionID: "456", purchase: false,
+        DownloadRequest(appID: testAppID(name), externalVersionID: "456", purchase: false,
                         output: tempDir.appendingPathComponent("\(name).ipa"), platform: nil)
     }
 

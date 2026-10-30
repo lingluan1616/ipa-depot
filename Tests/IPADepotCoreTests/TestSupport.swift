@@ -51,3 +51,8 @@ final class Box<T>: @unchecked Sendable {
     }
     func mutate(_ body: (inout T) -> Void) { lock.lock(); body(&_value); lock.unlock() }
 }
+
+/// 阶段八起队列按 appID + 版本 + 平台 + 账号去重：队列测试里以名字区分的任务给不同的 appID（同名同 id，稳定可复现）。
+func testAppID(_ name: String) -> Int64 {
+    name.unicodeScalars.reduce(Int64(17)) { ($0 &* 131 &+ Int64($1.value)) % 1_000_000_007 }
+}

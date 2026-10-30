@@ -524,7 +524,7 @@ final class AccountSwitcherTests: TempDirTestCase {
 
 final class QueueAccountSwitchTests: TempDirTestCase {
     private func request(_ name: String, account: UUID?) -> DownloadRequest {
-        DownloadRequest(appID: 1, output: tempDir.appendingPathComponent("\(name).ipa"), accountID: account)
+        DownloadRequest(appID: testAppID(name), output: tempDir.appendingPathComponent("\(name).ipa"), accountID: account)
     }
 
     func testTaskForAnotherAccountSwitchesBeforeStarting() async throws {

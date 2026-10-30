@@ -263,11 +263,12 @@ private struct AppResultRow: View {
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(row.isFree ? .secondary : .primary)
                 .frame(minWidth: 44, alignment: .trailing)
-            Button("下载最新版") {
+            DownloadPhaseButton(title: "下载最新版", phase: model.downloadPhase(for: row),
+                                disabled: model.account == nil && !row.isPublicCatalog) {
                 model.perform(.download(row))
             }
-            .disabled(model.account == nil && !row.isPublicCatalog)
-            Button("历史版本…") {
+            DownloadPhaseButton(title: "历史版本…",
+                                phase: model.isResolving(.versions(row)) ? .resolving : .idle) {
                 model.perform(.versions(row))
             }
         }

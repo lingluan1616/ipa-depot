@@ -191,6 +191,16 @@
         }
       }
     },
+    "下载页里已有这个任务；完成、失败或取消后可再次下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This download is already in the Downloads list; you can download it again after it finishes, fails, or is cancelled"
+          }
+        }
+      }
+    },
     "不同地区账号的版本列表与授权可能不同，需要重新获取。": {
       "localizations": {
         "en": {
@@ -843,12 +853,42 @@
         }
       }
     },
+    "已加入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added"
+          }
+        }
+      }
+    },
+    "已加入下载队列": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added to the download queue"
+          }
+        }
+      }
+    },
     "已取消切换。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The switch was cancelled."
+          }
+        }
+      }
+    },
+    "已在队列": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Queue"
           }
         }
       }
@@ -1613,6 +1653,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Switching accounts…"
+          }
+        }
+      }
+    },
+    "正在匹配该地区的账号…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding an account for this region…"
           }
         }
       }

@@ -6,7 +6,7 @@ import XCTest
 
 final class ConcurrentDownloadQueueTests: TempDirTestCase {
     private func request(_ name: String, account: UUID? = nil) -> DownloadRequest {
-        DownloadRequest(appID: 1, output: tempDir.appendingPathComponent("\(name).ipa"), accountID: account)
+        DownloadRequest(appID: testAppID(name), output: tempDir.appendingPathComponent("\(name).ipa"), accountID: account)
     }
 
     private func status(_ queue: DownloadQueue, _ id: UUID) async -> DownloadItemStatus? {

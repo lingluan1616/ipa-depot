@@ -70,8 +70,10 @@ final class ConcurrentDownloadsSettingTests: VMTestCase {
         vm.startObserving()
         await queue.setMaxConcurrent(2)
         var ids: [UUID] = []
-        for name in ["A", "B", "C"] {
-            let context = DownloadContext(app: app(name: name), platform: .iphone, externalVersionID: nil, versionLabel: "1.0")
+        for (offset, name) in ["A", "B", "C"].enumerated() {
+            // 阶段八起同一任务会去重：三个任务用不同的 App id
+            let context = DownloadContext(app: app(Int64(100 + offset), name: name), platform: .iphone,
+                                          externalVersionID: nil, versionLabel: "1.0")
             if let id = await vm.enqueue(context) { ids.append(id) }
         }
         await waitUntil { vm.runningCount == 2 && vm.activeRows.count == 3 }

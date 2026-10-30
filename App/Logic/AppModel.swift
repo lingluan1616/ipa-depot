@@ -45,8 +45,8 @@ final class AppModel {
     @ObservationIgnored let services: AppServices
     @ObservationIgnored private var versionModels: [Int64: VersionsViewModel] = [:]
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
-    /// 等账号切换（或添加账号）完成后继续的公开目录操作。
-    @ObservationIgnored private(set) var pendingCatalogAction: PendingCatalogAction?
+    /// 等账号切换（或添加账号）完成后继续的公开目录操作（被观察：解析期间对应按钮显示小菊花并禁用）。
+    private(set) var pendingCatalogAction: PendingCatalogAction?
 
     init(services: AppServices) {
         self.services = services
@@ -352,6 +352,27 @@ final class AppModel {
         case .download(let row):
             Task { await downloads.enqueue(Self.latestContext(row)) }
         }
+    }
+
+    // MARK: - 下载按钮状态（阶段八）
+
+    /// 该操作是否正在等账号匹配 / 自动切换 / 添加账号完成。
+    func isResolving(_ action: CatalogAction) -> Bool {
+        pendingCatalogAction?.action == action
+    }
+
+    /// 搜索结果行「下载最新版」的按钮状态：按 appID + 平台 + 最新版 + 账号（公开目录结果用匹配地区的账号）推导。
+    func downloadPhase(for row: AppRowModel) -> DownloadButtonPhase {
+        if isResolving(.download(row)) { return .resolving }
+        var accountID: UUID?
+        if let code = row.app.catalogCountry {
+            switch accounts.book.match(countryCode: code) {
+            case .current: accountID = nil
+            case .other(let record): accountID = record.id
+            case .none: return .idle // 还没有该地区的账号，队列里不可能有它的任务
+            }
+        }
+        return downloads.buttonPhase(for: Self.latestContext(row), accountID: accountID)
     }
 
     static func latestContext(_ row: AppRowModel) -> DownloadContext {

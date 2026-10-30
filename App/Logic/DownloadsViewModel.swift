@@ -155,6 +155,20 @@ struct DownloadRow: Identifiable, Equatable {
     }
 }
 
+/// 下载按钮的状态（阶段八）：搜索结果行与历史版本页共用。
+enum DownloadButtonPhase: Equatable {
+    /// 默认，可点击。
+    case idle
+    /// 公开目录结果正在匹配 / 切换账号或等待添加账号：显示小菊花并禁用。
+    case resolving
+    /// 刚点击加入（约 1.5 秒）：带勾的「已加入」，禁用。
+    case justAdded
+    /// 队列里已有匹配的未结束任务：「已在队列」，禁用。
+    case inQueue
+
+    var isEnabled: Bool { self == .idle }
+}
+
 @MainActor
 @Observable
 final class DownloadsViewModel {
@@ -162,6 +176,10 @@ final class DownloadsViewModel {
     private(set) var contexts: [UUID: DownloadContext] = [:]
     var licensePrompt: LicensePrompt?
     var enqueueError: ErrorPresentation?
+    /// 刚点击加入的任务键 → 本次标记的令牌（「已加入」反馈，`justAddedDuration` 后清除）。
+    private(set) var justAdded: [DownloadDedupeKey: UUID] = [:]
+    /// 「已加入」反馈持续时间（测试里调短）。
+    @ObservationIgnored var justAddedDuration: Duration = .milliseconds(1500)
 
     /// 下载完成时回调（写入记录）。
     @ObservationIgnored var onRecord: ((DownloadRecord) -> Void)?
@@ -269,8 +287,46 @@ final class DownloadsViewModel {
         let id = UUID()
         contexts[id] = context
         outputs[id] = output
-        await queue.add(request, id: id)
-        return id
+        markJustAdded(request.dedupeKey)
+        let result = await queue.addDeduplicated(request, id: id)
+        if !result.isNew {
+            // 已有未结束的同一任务：不新建，释放这次预留的文件名
+            contexts[id] = nil
+            outputs[id] = nil
+        }
+        return result.id
+    }
+
+    // MARK: - 下载按钮状态（阶段八）
+
+    /// 某个下载入口的按钮状态。`accountID`：任务将属于的账号，nil = 当前账号。
+    /// 优先级：刚加入 > 已在队列 > 默认（「解析中」由调用方判断）。由队列快照 `items` 实时推导，不靠点击记忆。
+    func buttonPhase(for context: DownloadContext, accountID: UUID? = nil) -> DownloadButtonPhase {
+        let key = Self.key(for: context, accountID: accountID ?? currentAccountID())
+        let current = currentAccountID()
+        let isCurrent: (UUID) -> Bool = { current == nil || $0 == current }
+        if justAdded.keys.contains(where: { $0.matches(key, isCurrentAccount: isCurrent) }) { return .justAdded }
+        if items.contains(where: { $0.status.isUnfinished && $0.request.dedupeKey.matches(key, isCurrentAccount: isCurrent) }) {
+            return .inQueue
+        }
+        return .idle
+    }
+
+    static func key(for context: DownloadContext, accountID: UUID?) -> DownloadDedupeKey {
+        DownloadDedupeKey(appID: context.appID, externalVersionID: context.externalVersionID,
+                          platform: context.platform.downloadPlatform, accountID: accountID)
+    }
+
+    /// 标记「已加入」，`justAddedDuration` 后清除（期间再次标记以最后一次为准）。
+    private func markJustAdded(_ key: DownloadDedupeKey) {
+        let token = UUID()
+        justAdded[key] = token
+        let duration = justAddedDuration
+        Task { [weak self] in
+            try? await Task.sleep(for: duration)
+            guard let self, self.justAdded[key] == token else { return }
+            self.justAdded[key] = nil
+        }
     }
 
     func pause(_ id: UUID) { Task { await queue.pause(id) } }

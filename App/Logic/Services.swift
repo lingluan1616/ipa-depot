@@ -28,6 +28,8 @@ extension AppLookupProviding {
 
 protocol DownloadQueueing: Sendable {
     @discardableResult func add(_ request: DownloadRequest, id: UUID) async -> UUID
+    /// 入队（去重）：已有未结束的同一任务时不新建，返回已有 id 与 `isNew = false`。
+    func addDeduplicated(_ request: DownloadRequest, id: UUID) async -> (id: UUID, isNew: Bool)
     func pause(_ id: UUID) async
     func resume(_ id: UUID) async
     func cancel(_ id: UUID) async

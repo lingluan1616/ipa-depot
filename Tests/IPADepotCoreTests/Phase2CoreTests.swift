@@ -130,7 +130,7 @@ final class LocatorPhase2Tests: XCTestCase {
 
 final class DownloadQueueTests: TempDirTestCase {
     private func request(_ name: String) -> DownloadRequest {
-        DownloadRequest(appID: 1, output: tempDir.appendingPathComponent("\(name).ipa"))
+        DownloadRequest(appID: testAppID(name), output: tempDir.appendingPathComponent("\(name).ipa"))
     }
 
     private func status(_ queue: DownloadQueue, _ id: UUID) async -> DownloadItemStatus? {
