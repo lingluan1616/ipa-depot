@@ -56,6 +56,16 @@ struct ContentView: View {
             Text(failure.presentation.raw.isEmpty ? failure.presentation.message
                  : "\(failure.presentation.message)\n\n\(failure.presentation.raw)")
         }
+        .alert(model.missingRegionPrompt.map { String(localized: "没有 \($0.regionTitle) 地区的账号") } ?? "",
+               isPresented: Binding(get: { model.missingRegionPrompt != nil },
+                                    set: { if !$0 { model.missingRegionPrompt = nil } }),
+               presenting: model.missingRegionPrompt) { prompt in
+            Button("添加账号…") { model.addAccount(for: prompt) }
+            Button("取消", role: .cancel) { model.missingRegionPrompt = nil }
+        } message: { prompt in
+            Text("这个 App 来自 \(prompt.regionTitle) 的公开目录。查看历史版本与下载需要一个 \(prompt.regionTitle) 地区的 Apple ID；添加后会自动继续。")
+        }
+        .errorAlert($model.catalogActionError, title: "暂时无法继续")
         .errorAlert($model.logoutError, title: "登出失败")
         .errorAlert(Binding(get: { model.downloads.enqueueError }, set: { model.downloads.enqueueError = $0 }),
                     title: "无法开始下载")
@@ -165,7 +175,7 @@ struct AccountFooter: View {
                 AccountMenuItems(includeSignOut: true) { confirmingLogout = true }
             } label: {
                 HStack(spacing: 6) {
-                    AccountIdentityView(region: model.accounts.active?.regionLabel, name: account.name, email: account.email)
+                    AccountIdentityView(region: model.accounts.active?.regionTitle, name: account.name, email: account.email)
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption)
@@ -246,6 +256,8 @@ struct ArtworkView: View {
     @Environment(AppModel.self) private var model
     let appID: Int64
     var size: CGFloat = 48
+    /// 公开目录结果：带图标地址与开发者名，先交给图标缓存。
+    var app: AppSummary? = nil
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
@@ -267,7 +279,10 @@ struct ArtworkView: View {
         .frame(width: size, height: size)
         .clipShape(shape)
         .overlay(shape.strokeBorder(.separator, lineWidth: 0.5))
-        .task(id: appID) { await model.artwork.request(appID) }
+        .task(id: appID) {
+            if let app { await model.artwork.prime(app) }
+            await model.artwork.request(appID)
+        }
     }
 }
 

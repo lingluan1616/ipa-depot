@@ -1,0 +1,23 @@
+23:55:40 auth login --format json
+23:55:42 login jp@example.test cookies-before=
+23:55:59 auth revoke --format json --non-interactive
+23:55:59 revoke cookies=jp@example.test-trusted 
+23:55:59 auth login --format json
+23:56:00 login us@example.test cookies-before=
+23:56:02 list-versions -i 1606306441 --format json --non-interactive
+23:56:02 list-versions-as us@example.test
+23:56:02 get-version-metadata -i 1606306441 --external-version-id 880000002 --format json --non-interactive
+23:56:02 get-version-metadata -i 1606306441 --external-version-id 880000001 --format json --non-interactive
+23:56:02 get-version-metadata -i 1606306441 --external-version-id 880000003 --format json --non-interactive
+23:56:04 auth revoke --format json --non-interactive
+23:56:04 revoke cookies=us@example.test-trusted 
+23:56:04 auth login --format json
+23:56:05 login jp@example.test cookies-before=jp@example.test-trusted 
+23:56:07 auth revoke --format json --non-interactive
+23:56:07 revoke cookies=jp@example.test-trusted 
+23:56:07 auth login --format json
+23:56:08 login us@example.test cookies-before=us@example.test-trusted 
+23:56:08 list-versions -i 1606306441 --format json --non-interactive
+23:56:08 list-versions-as us@example.test
+23:56:10 download -i 1606306441 -o /Users/lingluan/Documents/claude/ipa-depot/build/smoke-downloads/MD Vinyl Music App_3.8.5.ipa --format json
+23:56:10 download-as us@example.test

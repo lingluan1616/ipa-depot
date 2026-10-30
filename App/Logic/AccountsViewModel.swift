@@ -15,11 +15,40 @@ extension AccountRegion {
         case .other: return String(localized: "其他")
         }
     }
+
+    /// 带旗帜的地区名（Picker 用）：「🇯🇵 日本」。
+    var flagTitle: String { "\(catalogEntry.flag) \(title)" }
+
+    /// 国家代码 → 地区名：目录里的地区用其名称，其他代码显示为大写代码（如「SG」）。
+    static func title(forCode code: String) -> String {
+        guard let normalized = RegionCatalog.normalizeCode(code) else { return code }
+        if let region = RegionCatalog.region(forCode: normalized), region != .other { return region.title }
+        return normalized.uppercased()
+    }
+
+    /// 下载记录里保存的地区快照（原始值 / 两位代码 / 旧版标签文字）→ 地区名。
+    static func title(forStored raw: String) -> String {
+        let resolved = RegionCatalog.resolve(storedValue: raw)
+        if resolved.region == .other, let code = resolved.customCode { return code.uppercased() }
+        return resolved.region.title
+    }
 }
 
 extension AccountRecord {
+    /// 地区名：「日本」；「其他」且自填了代码时为「其他（SG）」。
+    var regionTitle: String {
+        if regionLabel == .other, let code = customRegionCode { return String(localized: "其他（\(code.uppercased())）") }
+        return regionLabel.title
+    }
+
+    /// 写进下载记录的地区快照：「其他」且自填了代码时存代码，否则存原始值。
+    var regionSnapshot: String {
+        if regionLabel == .other, let code = customRegionCode { return code }
+        return regionLabel.rawValue
+    }
+
     /// 菜单与列表里的一行：「日本 · a@b.com」。
-    var menuTitle: String { "\(regionLabel.title) · \(email)" }
+    var menuTitle: String { "\(regionTitle) · \(email)" }
 
     var accountInfo: AccountInfo { AccountInfo(name: displayName, email: email) }
 }
@@ -105,9 +134,23 @@ final class AccountsViewModel {
     /// 某条任务 / 记录的地区标签：有账号 id 用账号表里的；账号已移除用快照；旧数据（无账号 id）视为当前账号。
     func region(for accountID: UUID?, snapshot: String? = nil) -> AccountRegion? {
         if let accountID, let record = book.account(accountID) { return record.regionLabel }
-        if let snapshot, let region = AccountRegion(rawValue: snapshot) { return region }
+        if let snapshot { return RegionCatalog.resolve(storedValue: snapshot).region }
         if accountID == nil { return book.active?.regionLabel }
         return nil
+    }
+
+    /// 同上，返回界面显示的地区名（「其他」带自填代码）。
+    func regionTitle(for accountID: UUID?, snapshot: String? = nil) -> String? {
+        if let accountID, let record = book.account(accountID) { return record.regionTitle }
+        if let snapshot { return AccountRegion.title(forStored: snapshot) }
+        if accountID == nil { return book.active?.regionTitle }
+        return nil
+    }
+
+    /// 同上，返回写进下载记录的地区快照。
+    func regionSnapshot(for accountID: UUID?) -> String? {
+        if let accountID { return book.account(accountID)?.regionSnapshot }
+        return book.active?.regionSnapshot
     }
 
     // MARK: - 订阅切换进度
@@ -220,9 +263,9 @@ final class AccountsViewModel {
         switcher.cancel()
     }
 
-    func setRegion(_ region: AccountRegion, for account: AccountRecord) async {
+    func setRegion(_ region: AccountRegion, customCode: String? = nil, for account: AccountRecord) async {
         do {
-            try await switcher.setRegion(region, for: account.id)
+            try await switcher.setRegion(region, customCode: customCode, for: account.id)
         } catch {
             manageError = ErrorPresentation(message: String(localized: "无法保存账号列表。"), raw: error.localizedDescription)
         }
@@ -246,7 +289,7 @@ final class AccountsViewModel {
 
     /// 进度文字（遮罩与登录窗口共用）。
     static func statusText(_ progress: AccountSwitchProgress) -> String {
-        let region = progress.target.regionLabel.title
+        let region = progress.target.regionTitle
         switch progress.phase {
         case .idle, .savingCookies: return String(localized: "正在保存当前会话")
         case .revoking: return String(localized: "正在退出当前账号")
@@ -256,13 +299,13 @@ final class AccountsViewModel {
             return String(localized: "正在登录 \(region) 账号")
         case .needsTwoFactor:
             if progress.isRollback, let previous = progress.previous {
-                return String(localized: "恢复 \(previous.regionLabel.title) 账号需要验证码")
+                return String(localized: "恢复 \(previous.regionTitle) 账号需要验证码")
             }
             return String(localized: "\(region) 账号需要验证码")
         case .verifying: return String(localized: "正在验证…")
         case .rollingBack:
             if let previous = progress.previous {
-                return String(localized: "切换失败，正在恢复 \(previous.regionLabel.title) 账号")
+                return String(localized: "切换失败，正在恢复 \(previous.regionTitle) 账号")
             }
             return String(localized: "切换失败，正在恢复")
         case .done: return String(localized: "已切换到 \(region) 账号")
@@ -272,7 +315,7 @@ final class AccountsViewModel {
 
     /// 失败提示：原因 + 回滚结果。用户取消且已恢复时不提示。
     static func describeFailure(_ error: AccountSwitchError, target: AccountRecord?) -> AccountSwitchFailurePresentation? {
-        let name = target.map { "\($0.regionLabel.title)（\($0.email)）" } ?? ""
+        let name = target.map { "\($0.regionTitle)（\($0.email)）" } ?? ""
         var lines: [String] = []
         switch error.reason {
         case .busy: lines.append(String(localized: "另一个账号切换正在进行，请稍后再试。"))
@@ -293,7 +336,7 @@ final class AccountsViewModel {
         switch error.rollback {
         case .notNeeded: break
         case .restored(let previous):
-            lines.append(String(localized: "已恢复为原来的 \(previous.regionLabel.title) 账号。"))
+            lines.append(String(localized: "已恢复为原来的 \(previous.regionTitle) 账号。"))
         case .signedOut:
             lines.append(String(localized: "未能恢复原来的账号，现在处于未登录状态。请在侧栏账号菜单重新选择账号登录。"))
         }
@@ -308,16 +351,20 @@ final class AccountsViewModel {
 final class SwitcherLoginSession: LoginSessioning, @unchecked Sendable {
     let switcher: AccountSwitcher
     let region: AccountRegion
+    /// 地区为「其他」时自填的两位国家代码。
+    let customRegionCode: String?
 
-    init(switcher: AccountSwitcher, region: AccountRegion) {
+    init(switcher: AccountSwitcher, region: AccountRegion, customRegionCode: String? = nil) {
         self.switcher = switcher
         self.region = region
+        self.customRegionCode = customRegionCode
     }
 
     func login(email: String, password: String,
                onEvent: @escaping @Sendable (LoginEvent) -> Void) async -> Result<AccountInfo, IpatoolError> {
         // 内部（含回滚时）的成功 / 失败事件不直接转发，以切换器的最终结果为准
-        let result = await switcher.addAccount(email: email, password: password, region: region) { event in
+        let result = await switcher.addAccount(email: email, password: password, region: region,
+                                                customRegionCode: customRegionCode) { event in
             switch event {
             case .succeeded, .failed: return
             default: onEvent(event)

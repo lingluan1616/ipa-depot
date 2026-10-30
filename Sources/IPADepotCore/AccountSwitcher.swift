@@ -251,7 +251,7 @@ public actor AccountSwitcher {
     }
 
     /// 添加新账号：保存并退出当前账号（如有）→ 用新账号登录 → 成功后写入账号表与钥匙串并设为当前账号。
-    public func addAccount(email: String, password: String, region: AccountRegion,
+    public func addAccount(email: String, password: String, region: AccountRegion, customRegionCode: String? = nil,
                            onEvent: (@Sendable (LoginEvent) -> Void)? = nil) async -> Result<AccountRecord, AccountSwitchError> {
         guard !busy else { return .failure(AccountSwitchError(reason: .busy, target: nil)) }
         let book = store.load()
@@ -260,13 +260,14 @@ public actor AccountSwitcher {
             // 已存在：等同于用新密码切换过去（并更新地区标签）
             var updated = existing
             updated.regionLabel = region
+            updated.customRegionCode = region == .other ? customRegionCode.flatMap(RegionCatalog.normalizeCode) : nil
             var next = book
             next.upsert(updated)
             try? store.save(next)
             return await perform(kind: .switchTo, target: updated, password: password, storePassword: true,
                                  book: next, onEvent: onEvent)
         }
-        let record = AccountRecord(email: trimmed, regionLabel: region, passwordState: .saved)
+        let record = AccountRecord(email: trimmed, regionLabel: region, customRegionCode: customRegionCode, passwordState: .saved)
         return await perform(kind: .add, target: record, password: password, storePassword: true,
                              book: book, onEvent: onEvent)
     }
@@ -479,10 +480,13 @@ public actor AccountSwitcher {
         try store.save(book)
     }
 
-    /// 修改地区标签。
-    public func setRegion(_ region: AccountRegion, for accountID: UUID) throws {
+    /// 修改地区标签（「其他」可带自填的两位国家代码）。
+    public func setRegion(_ region: AccountRegion, customCode: String? = nil, for accountID: UUID) throws {
         var book = store.load()
-        book.update(accountID) { $0.regionLabel = region }
+        book.update(accountID) {
+            $0.regionLabel = region
+            $0.customRegionCode = region == .other ? customCode.flatMap(RegionCatalog.normalizeCode) : nil
+        }
         try store.save(book)
     }
 
@@ -502,8 +506,17 @@ public actor AccountSwitcher {
     /// 0.1.0 升级迁移：账号表为空且 `auth info` 已登录时，为当前登录账号建一条记录（密码待补、地区「其他」待用户选择）。
     /// 返回新建的记录；不满足条件返回 nil。
     public func migrateIfNeeded(signedIn info: AccountInfo) -> AccountRecord? {
+        guard store.load().isEmpty else { return nil }
+        return adoptSignedInAccount(info)?.record
+    }
+
+    /// 启动时 `auth info` 的账号不在账号表里（表为空 = 0.1.0 升级迁移；表不为空 = 例如在终端用别的账号登录过）：
+    /// 自动加入账号表（密码待补、地区「其他」待用户选择）并设为当前账号。与升级迁移共用这一段。
+    /// 已在表里或邮箱为空返回 nil。
+    public func adoptSignedInAccount(_ info: AccountInfo) -> AccountAdoption? {
         var book = store.load()
-        guard book.isEmpty, !info.email.isEmpty else { return nil }
+        guard !info.email.isEmpty, book.account(email: info.email) == nil else { return nil }
+        let isMigration = book.isEmpty
         let record = AccountRecord(email: info.email, displayName: info.name, regionLabel: .other,
                                    lastLoginAt: nil, passwordState: .missing)
         book.upsert(record)
@@ -511,7 +524,7 @@ public actor AccountSwitcher {
         guard (try? store.save(book)) != nil else { return nil }
         try? cookies.save(accountID: record.id)
         current.id = record.id
-        return record
+        return AccountAdoption(record: record, isMigration: isMigration)
     }
 
     /// 启动时与 `auth info` 的结果对账：已登录且邮箱与账号表中某条一致 → 设为激活；未登录 → 激活置空。
@@ -532,6 +545,13 @@ public actor AccountSwitcher {
         current.id = active?.id
         return active
     }
+}
+
+/// `adoptSignedInAccount` 的结果。
+public struct AccountAdoption: Sendable, Equatable {
+    public let record: AccountRecord
+    /// 账号表原本为空（0.1.0 升级迁移）：此时还要给旧下载记录与队列条目盖上该账号 id。
+    public let isMigration: Bool
 }
 
 // MARK: - 下载队列的自动切换

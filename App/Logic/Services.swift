@@ -18,6 +18,12 @@ protocol VersionServicing: Sendable {
 protocol AppLookupProviding: Sendable {
     func info(appID: Int64) async -> AppLookupInfo?
     func artworkFile(appID: Int64) async -> URL?
+    /// 预先放入已知的图标地址与开发者名（公开目录结果）。
+    func prime(_ info: AppLookupInfo) async
+}
+
+extension AppLookupProviding {
+    func prime(_ info: AppLookupInfo) async {}
 }
 
 protocol DownloadQueueing: Sendable {
@@ -78,6 +84,8 @@ struct AppServices {
     var currentAccount: CurrentAccount
     /// 多账号：账号表、钥匙串密码、每账号 Cookie 与切换流程。
     var switcher: AccountSwitcher
+    /// 浏览地区：Apple 公开目录搜索（iTunes Search API）。
+    var catalog: PublicCatalogSearching? = nil
 
     static func live() -> AppServices {
         let paths = AppPaths.default
@@ -127,7 +135,8 @@ struct AppServices {
             makeUpdateChecker: { UpdateChecker(owner: $0, repo: ProjectInfo.repositoryName) },
             setupError: setupError,
             currentAccount: currentAccount,
-            switcher: switcher
+            switcher: switcher,
+            catalog: PublicCatalogService()
         )
     }
 }

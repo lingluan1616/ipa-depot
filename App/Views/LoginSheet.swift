@@ -196,15 +196,11 @@ private struct CredentialsStep: View {
                     .textContentType(.password)
                     .focused($focused, equals: .secret)
                     .onSubmit(submit)
-                Picker("地区标签", selection: $login.region) {
-                    ForEach(AccountRegion.allCases) { region in
-                        Text(region.title).tag(region)
-                    }
-                }
+                RegionPicker(title: "地区标签", region: $login.region, customCode: $login.customRegionCode)
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
-            .frame(height: 150)
+            .frame(height: login.region == .other ? 190 : 150)
             .padding(.horizontal, -20)
             .disabled(login.isWorking)
 
@@ -265,9 +261,10 @@ private struct TwoFactorStep: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("双重认证")
                     .font(BrandFont.title)
-                Text("请输入受信任设备上显示的 6 位验证码。")
+                Text("验证码已推送到该 Apple ID 的所有受信任设备（含 Apple Watch），请在设备通知中查看。此通道不支持短信验证。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack {

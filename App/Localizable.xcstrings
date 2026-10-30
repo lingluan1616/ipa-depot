@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
+    "%@ 公开目录中没有与「%@」匹配的 App。换个关键词、平台或浏览地区再试试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No apps in the %1$@ public catalog match “%2$@”. Try another keyword, platform, or browsing region."
+          }
+        }
+      }
+    },
     "%@ 账号需要验证码": {
       "localizations": {
         "en": {
@@ -201,12 +211,32 @@
         }
       }
     },
+    "两位国家或地区代码，如 sg（新加坡）、gb（英国）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Two-letter country or region code, e.g. sg (Singapore), gb (United Kingdom)"
+          }
+        }
+      }
+    },
     "中国大陆": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Mainland China"
+          }
+        }
+      }
+    },
+    "从「浏览地区」的公开目录发起": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Started from the public catalog (Browse Region)"
           }
         }
       }
@@ -281,6 +311,16 @@
         }
       }
     },
+    "公开目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public Catalog"
+          }
+        }
+      }
+    },
     "共 %lld 个版本，最新在上 · 已加载 %lld 个版本号": {
       "localizations": {
         "en": {
@@ -307,6 +347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Other"
+          }
+        }
+      }
+    },
+    "其他（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other (%@)"
           }
         }
       }
@@ -507,6 +557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Store Region Follows Your Account"
+          }
+        }
+      }
+    },
+    "国家代码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Country Code"
           }
         }
       }
@@ -1254,6 +1314,16 @@
         }
       }
     },
+    "暂时无法继续": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t Continue Right Now"
+          }
+        }
+      }
+    },
     "更新": {
       "localizations": {
         "en": {
@@ -1300,6 +1370,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "A download is in progress. Pause it to switch accounts"
+          }
+        }
+      }
+    },
+    "有下载正在进行，暂时不能切换到 %@ 账号。请等下载完成后再试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A download is in progress, so IPA Depot can’t switch to the %@ account right now. Try again after the download finishes."
           }
         }
       }
@@ -1351,6 +1431,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't restore the previous account. You are now signed out. Choose an account in the sidebar account menu to sign in again."
+          }
+        }
+      }
+    },
+    "来自 Apple 公开目录（浏览地区），与当前账号无关": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From Apple’s public catalog (Browse Region); not tied to the current account"
           }
         }
       }
@@ -1596,6 +1686,16 @@
         }
       }
     },
+    "没有 %@ 地区的账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No %@ Account"
+          }
+        }
+      }
+    },
     "没有下载任务": {
       "localizations": {
         "en": {
@@ -1642,6 +1742,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Legal Notice…"
+          }
+        }
+      }
+    },
+    "浏览 %@ 公开目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse the %@ Public Catalog"
+          }
+        }
+      }
+    },
+    "浏览地区": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse Region"
+          }
+        }
+      }
+    },
+    "浏览地区：只影响搜索目录；下载仍需该地区的账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse Region only changes the search catalog; downloading still needs an account from that region"
           }
         }
       }
@@ -2109,6 +2239,16 @@
         }
       }
     },
+    "请填写国家代码": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a Country Code"
+          }
+        }
+      }
+    },
     "请输入 6 位数字验证码。": {
       "localizations": {
         "en": {
@@ -2120,6 +2260,7 @@
       }
     },
     "请输入受信任设备上显示的 6 位验证码。": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2165,6 +2306,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "This App Isn’t in Your Account"
+          }
+        }
+      }
+    },
+    "跟随当前账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow Current Account"
+          }
+        }
+      }
+    },
+    "输入名称或关键词，在 %@ App Store 的公开目录中搜索（不需要登录）。查看历史版本与下载时需要一个 %@ 地区的账号。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a name or keyword to search the public catalog of the %1$@ App Store (no sign-in needed). Viewing versions and downloading require an account from %2$@."
           }
         }
       }
@@ -2215,6 +2376,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Saved Accounts"
+          }
+        }
+      }
+    },
+    "这个 App 来自 %@ 的公开目录。查看历史版本与下载需要一个 %@ 地区的 Apple ID；添加后会自动继续。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This app comes from the %1$@ public catalog. Viewing versions and downloading require an Apple ID from %2$@; IPA Depot continues automatically after you add one."
           }
         }
       }
@@ -2305,6 +2476,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose…"
+          }
+        }
+      }
+    },
+    "选择「其他」时，请在旁边填写两位国家或地区代码，如 sg（新加坡）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When “Other” is selected, enter a two-letter country or region code next to it, such as sg (Singapore)."
           }
         }
       }
@@ -2486,6 +2667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The code is incorrect or expired. Enter it again."
+          }
+        }
+      }
+    },
+    "验证码已推送到该 Apple ID 的所有受信任设备（含 Apple Watch），请在设备通知中查看。此通道不支持短信验证。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The code has been pushed to all trusted devices of this Apple ID (including Apple Watch). Check the notification on your device. This channel doesn’t support SMS verification."
           }
         }
       }

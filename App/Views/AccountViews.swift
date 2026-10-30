@@ -5,7 +5,7 @@ import IPADepotCore
 
 /// 当前账号的显示（地区标签 + 显示名 + 邮箱）。
 struct AccountIdentityView: View {
-    let region: AccountRegion?
+    let region: String?
     let name: String
     let email: String
 
@@ -16,7 +16,7 @@ struct AccountIdentityView: View {
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
-                    if let region { TagView(text: region.title) }
+                    if let region { TagView(text: region) }
                     Text(name.isEmpty ? String(localized: "已登录") : name)
                         .font(.callout.weight(.medium))
                         .lineLimit(1)
@@ -101,7 +101,7 @@ struct AccountSwitchOverlay: View {
             Image(systemName: "person.2.circle")
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(.tint)
-            Text("切换到 \(progress.target.regionLabel.title) 账号")
+            Text("切换到 \(progress.target.regionTitle) 账号")
                 .font(BrandFont.title)
             Text(verbatim: AccountFooter.displayed(account: progress.target).email)
                 .font(.callout)
@@ -110,9 +110,11 @@ struct AccountSwitchOverlay: View {
             if progress.phase == .needsTwoFactor {
                 Text(AccountsViewModel.statusText(progress))
                     .font(.callout)
-                Text("请输入受信任设备上显示的 6 位验证码。")
+                Text("验证码已推送到该 Apple ID 的所有受信任设备（含 Apple Watch），请在设备通知中查看。此通道不支持短信验证。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 TextField("验证码", text: $accounts.code, prompt: Text(verbatim: "000000"))
                     .labelsHidden()
                     .font(.system(size: 24, weight: .medium, design: .monospaced))
@@ -234,13 +236,21 @@ private struct AccountManagerRow: View {
         let shown = AccountFooter.displayed(account: account)
         HStack(spacing: 10) {
             Picker("地区", selection: Binding(get: { account.regionLabel },
-                                              set: { region in Task { await model.accounts.setRegion(region, for: account) } })) {
-                ForEach(AccountRegion.allCases) { region in
-                    Text(region.title).tag(region)
+                                              set: { region in
+                                                  let code = region == .other ? account.customRegionCode : nil
+                                                  Task { await model.accounts.setRegion(region, customCode: code, for: account) }
+                                              })) {
+                ForEach(RegionCatalog.regions) { region in
+                    Text(region.flagTitle).tag(region)
                 }
             }
             .labelsHidden()
             .fixedSize()
+            if account.regionLabel == .other {
+                RegionCodeField(initial: account.customRegionCode ?? "") { code in
+                    Task { await model.accounts.setRegion(.other, customCode: code, for: account) }
+                }
+            }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(verbatim: shown.email).lineLimit(1).truncationMode(.middle)
@@ -289,7 +299,7 @@ struct AccountPasswordSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(prompt.purpose == .switchTo ? "输入密码以切换账号" : "更新保存的密码")
                 .font(BrandFont.title)
-            Text(verbatim: "\(prompt.account.regionLabel.title) · \(AccountFooter.displayed(account: prompt.account).email)")
+            Text(verbatim: "\(prompt.account.regionTitle) · \(AccountFooter.displayed(account: prompt.account).email)")
                 .font(.callout)
             Text(prompt.purpose == .switchTo
                  ? "这个账号还没有保存密码。输入后会用它登录，成功后保存到这台 Mac 的钥匙串，以后切换不再询问。"
@@ -332,6 +342,7 @@ struct AccountRegionPromptSheet: View {
     @Environment(AppModel.self) private var model
     let account: AccountRecord
     @State private var region: AccountRegion = .mainlandChina
+    @State private var customCode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -343,11 +354,7 @@ struct AccountRegionPromptSheet: View {
             LabeledContent("账号") {
                 Text(verbatim: AccountFooter.displayed(account: account).email)
             }
-            Picker("地区", selection: $region) {
-                ForEach(AccountRegion.allCases) { region in
-                    Text(region.title).tag(region)
-                }
-            }
+            RegionPicker(title: "地区", region: $region, customCode: $customCode)
             Text("这个账号的密码尚未保存：切到其他账号后再切回来时，需要补填一次密码。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -360,13 +367,60 @@ struct AccountRegionPromptSheet: View {
                     let accounts = model.accounts
                     let account = self.account
                     let region = self.region
+                    let code = region == .other ? RegionCatalog.normalizeCode(customCode) : nil
                     accounts.regionPrompt = nil
-                    Task { await accounts.setRegion(region, for: account) }
+                    Task { await accounts.setRegion(region, customCode: code, for: account) }
                 }
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding(22)
         .frame(width: 440)
+    }
+}
+
+// MARK: - 地区选择（RegionCatalog）
+
+/// 地区 Picker（旗帜 + 名称，按目录排序）；选「其他」时显示两位国家代码输入框。
+struct RegionPicker: View {
+    let title: LocalizedStringKey
+    @Binding var region: AccountRegion
+    @Binding var customCode: String
+
+    var body: some View {
+        Picker(title, selection: $region) {
+            ForEach(RegionCatalog.regions) { region in
+                Text(region.flagTitle).tag(region)
+            }
+        }
+        if region == .other {
+            TextField("国家代码", text: $customCode, prompt: Text(verbatim: "sg"))
+                .onChange(of: customCode) { _, newValue in
+                    let letters = String(newValue.lowercased().filter { $0.isASCII && $0.isLetter }.prefix(2))
+                    if letters != newValue { customCode = letters }
+                }
+                .help("两位国家或地区代码，如 sg（新加坡）、gb（英国）")
+        }
+    }
+}
+
+/// 两位国家代码的小输入框：输入满两位有效字母时回调。
+struct RegionCodeField: View {
+    let initial: String
+    let onCommit: (String) -> Void
+    @State private var text = ""
+
+    var body: some View {
+        TextField("国家代码", text: $text, prompt: Text(verbatim: "sg"))
+            .labelsHidden()
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 44)
+            .onAppear { text = initial }
+            .onChange(of: text) { _, newValue in
+                let letters = String(newValue.lowercased().filter { $0.isASCII && $0.isLetter }.prefix(2))
+                if letters != newValue { text = letters; return }
+                if let code = RegionCatalog.normalizeCode(letters), code != initial { onCommit(code) }
+            }
+            .help("两位国家或地区代码，如 sg（新加坡）、gb（英国）")
     }
 }

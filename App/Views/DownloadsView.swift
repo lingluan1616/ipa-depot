@@ -72,9 +72,13 @@ private struct DownloadRowView: View {
                     Text(verbatim: row.context.versionLabel)
                         .font(BrandFont.number)
                         .foregroundStyle(.secondary)
-                    if let region = row.regionTitle, !model.accounts.accounts.isEmpty {
+                    if let region = row.regionTitle, row.isPublicCatalog || !model.accounts.accounts.isEmpty {
                         TagView(text: region)
                             .help("下载所用账号的地区")
+                    }
+                    if row.isPublicCatalog {
+                        TagView(text: String(localized: "公开目录"))
+                            .help("从「浏览地区」的公开目录发起")
                     }
                 }
                 progress

@@ -197,6 +197,8 @@ enum SmokeDriver {
             capture("p5-13-migration-region-prompt", dir: dir)
             model.accounts.regionPrompt = nil // 有 sheet 时系统不会退出 App
             await sleep(0.8)
+        case "p6Browse":
+            await runPhase6(model: model, dir: dir, note: note)
         default:
             note("unknown mode")
         }
@@ -314,6 +316,112 @@ enum SmokeDriver {
         model.page = .search
         await sleep(0.8)
         capture("p5-12-search-after-auto-switch", dir: dir)
+        note("final accounts=[\(accountsLine())]")
+    }
+
+    /// 阶段六冒烟（假 ipatool；公开目录走真实的 itunes.apple.com，公开接口、无需登录）：
+    /// 添加日本账号 → 浏览地区切到「美国」搜 vinyl（带「公开目录」标签）→ 点历史版本触发「没有 美国 地区的账号」
+    /// → 添加账号（地区预选美国，需 2FA）后自动继续进入历史版本 → 切回日本 → 再点历史版本触发自动切换（遮罩）
+    /// → 从公开目录下载最新版，队列显示地区与「公开目录」标签。结束时删掉本次写进偏好的浏览地区。
+    private static func runPhase6(model: AppModel, dir: URL, note: (String) -> Void) async {
+        let hadBrowseKey = UserDefaults.standard.persistentDomain(forName: "app.ipadepot.mac")?[BrowseRegion.defaultsKey] != nil
+        defer {
+            if !hadBrowseKey { UserDefaults.standard.removeObject(forKey: BrowseRegion.defaultsKey) }
+        }
+        func accountsLine() -> String {
+            model.accounts.accounts.map { "\($0.regionLabel.rawValue):\($0.email)\($0.id == model.accounts.active?.id ? "*" : "")" }
+                .joined(separator: ", ")
+        }
+        await sleep(1.0)
+        // 1. 添加日本账号
+        model.beginLogin()
+        await sleep(0.8)
+        guard let first = model.login else { note("no login sheet"); return }
+        first.continueFromIntro()
+        first.appleID = "jp@example.test"
+        first.password = "jp-pass"
+        first.region = .japan
+        await first.submitCredentials()
+        await wait(timeout: 20) { model.login == nil }
+        await sleep(0.5)
+        note("after jp login: accounts=[\(accountsLine())]")
+
+        // 2. 浏览地区 = 美国，搜 vinyl（真实公开目录；网络慢时重试一次）
+        model.page = .search
+        model.search.query = "vinyl"
+        model.search.setBrowseRegion(.region(.unitedStates, customCode: nil))
+        await wait(timeout: 25) { model.search.phase != .loading && model.search.phase != .idle }
+        if case .failed(let error) = model.search.phase {
+            note("catalog search failed once: \(error.message) \(error.raw)；重试")
+            model.search.submit()
+            await sleep(0.5)
+            await wait(timeout: 25) { model.search.phase != .loading }
+        }
+        note("browse us → phase=\(model.search.phase) rows=\(model.search.rows.count) public=\(model.search.rows.filter(\.isPublicCatalog).count) first=\(model.search.rows.prefix(3).map { "\($0.name)(\($0.id))" })")
+        await wait(timeout: 15) { model.artwork.images.count >= min(5, model.search.rows.count) }
+        await sleep(1.0)
+        capture("p6-01-browse-us-results", dir: dir)
+        guard let row = model.search.rows.first else { note("no catalog rows"); return }
+
+        // 3. 没有美国账号 → 提示
+        model.perform(.versions(row))
+        await sleep(1.0)
+        note("missing prompt: \(model.missingRegionPrompt.map { "\($0.countryCode) \($0.regionTitle)" } ?? "-")")
+        capture("p6-02-no-us-account-alert", dir: dir)
+        guard let prompt = model.missingRegionPrompt else { return }
+
+        // 4. 添加账号…（地区预选美国）→ 2FA → 成功后自动进入历史版本
+        model.addAccount(for: prompt)
+        await sleep(1.0)
+        guard let add = model.login else { note("no add sheet"); return }
+        note("add sheet region=\(add.region.rawValue) mode=\(add.mode)")
+        add.appleID = "us@example.test"
+        add.password = "us-pass"
+        await sleep(0.4)
+        capture("p6-03-add-us-preselected", dir: dir)
+        let submit = Task { await add.submitCredentials() }
+        await wait(timeout: 20) { add.step == .twoFactor }
+        await sleep(0.6)
+        capture("p6-04-2fa-copy", dir: dir)
+        add.code = "123456"
+        add.submitCode()
+        await submit.value
+        await wait(timeout: 20) { model.login == nil && model.searchPath.last == row }
+        await sleep(1.5)
+        note("after add: active=\(model.accounts.active?.email ?? "-") path=\(model.searchPath.map(\.name)) accounts=[\(accountsLine())]")
+        capture("p6-05-continued-to-versions", dir: dir)
+
+        // 5. 切回日本，再点历史版本 → 自动切换到美国（遮罩）
+        model.searchPath = []
+        if let jp = model.accounts.accounts.first(where: { $0.email == "jp@example.test" }) {
+            model.switchAccount(to: jp)
+            await wait(timeout: 20) { model.accounts.active?.id == jp.id && !model.accounts.isSwitching }
+        }
+        await sleep(0.8)
+        note("back to jp: active=\(model.accounts.active?.email ?? "-") rows still=\(model.search.rows.count)")
+        capture("p6-06-back-to-jp-results-kept", dir: dir)
+        model.perform(.versions(row))
+        await wait(timeout: 10) { model.accounts.isOverlayVisible }
+        await sleep(0.3)
+        note("overlay: \(model.accounts.switchProgress.map(AccountsViewModel.statusText) ?? "-")")
+        capture("p6-07-auto-switch-overlay", dir: dir)
+        await wait(timeout: 20) { !model.accounts.isSwitching && model.searchPath.last == row }
+        await sleep(1.5)
+        note("after auto-switch: active=\(model.accounts.active?.email ?? "-") path=\(model.searchPath.map(\.name))")
+        capture("p6-08-versions-after-auto-switch", dir: dir)
+
+        // 6. 从公开目录下载最新版（当前账号已是美国）→ 队列标签
+        model.searchPath = []
+        model.perform(.download(row))
+        model.page = .downloads
+        await wait(timeout: 10) { !model.downloads.activeRows.isEmpty }
+        await sleep(1.5)
+        note("queue: \(model.downloads.activeRows.map { "\($0.context.name) region=\($0.regionTitle ?? "-") public=\($0.isPublicCatalog) \($0.statusText)" })")
+        capture("p6-09-queue-public-catalog-tag", dir: dir)
+        if let id = model.downloads.activeRows.first?.id { model.downloads.cancel(id) }
+        await sleep(1.0)
+        model.page = .search
+        model.search.setBrowseRegion(.followAccount)
         note("final accounts=[\(accountsLine())]")
     }
 

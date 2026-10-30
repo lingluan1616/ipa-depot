@@ -49,6 +49,8 @@ private struct SearchBar: View {
             .background(.background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(.separator))
 
+            BrowseRegionPicker()
+
             Picker("平台", selection: $search.platform) {
                 ForEach(SearchPlatform.allCases) { platform in
                     Text(verbatim: platform.title).tag(platform)
@@ -83,6 +85,51 @@ private struct SearchBar: View {
     }
 }
 
+/// 「浏览地区」：跟随当前账号（ipatool 搜索）或指定地区（Apple 公开目录）。选「其他」时填两位代码。
+private struct BrowseRegionPicker: View {
+    @Environment(AppModel.self) private var model
+    @State private var customCode = ""
+
+    var body: some View {
+        let search = model.search
+        HStack(spacing: 4) {
+            Picker("浏览地区", selection: Binding<AccountRegion?>(
+                get: { search.browseRegion.region },
+                set: { region in
+                    guard let region else { search.setBrowseRegion(.followAccount); return }
+                    let code = region == .other ? RegionCatalog.normalizeCode(customCode) : nil
+                    search.setBrowseRegion(.region(region, customCode: code))
+                })) {
+                Text("跟随当前账号").tag(AccountRegion?.none)
+                Divider()
+                ForEach(RegionCatalog.regions) { region in
+                    Text(region.flagTitle).tag(AccountRegion?.some(region))
+                }
+            }
+            .labelsHidden()
+            .fixedSize()
+            .help("浏览地区：只影响搜索目录；下载仍需该地区的账号")
+            if search.browseRegion.region == .other {
+                TextField("国家代码", text: $customCode, prompt: Text(verbatim: "sg"))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 40)
+                    .onChange(of: customCode) { _, newValue in
+                        let letters = String(newValue.lowercased().filter { $0.isASCII && $0.isLetter }.prefix(2))
+                        if letters != newValue { customCode = letters; return }
+                        if let code = RegionCatalog.normalizeCode(letters) {
+                            search.setBrowseRegion(.region(.other, customCode: code))
+                        }
+                    }
+                    .help("两位国家或地区代码，如 sg（新加坡）、gb（英国）")
+            }
+        }
+        .onAppear {
+            if case .region(.other, let code) = search.browseRegion { customCode = code ?? "" }
+        }
+    }
+}
+
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
 
@@ -91,7 +138,19 @@ private struct SearchResults: View {
         Group {
             switch search.phase {
             case .idle:
-                if model.account == nil && model.accountState != .checking {
+                if let region = search.browseRegionTitle {
+                    ContentUnavailableView {
+                        Label("浏览 \(region) 公开目录", systemImage: "globe")
+                    } description: {
+                        Text("输入名称或关键词，在 \(region) App Store 的公开目录中搜索（不需要登录）。查看历史版本与下载时需要一个 \(region) 地区的账号。")
+                    }
+                } else if search.isBrowsingCatalog == false && search.browseRegion != .followAccount {
+                    ContentUnavailableView {
+                        Label("请填写国家代码", systemImage: "globe")
+                    } description: {
+                        Text("选择「其他」时，请在旁边填写两位国家或地区代码，如 sg（新加坡）。")
+                    }
+                } else if model.account == nil && model.accountState != .checking {
                     SignedOutView()
                 } else {
                     ContentUnavailableView {
@@ -107,7 +166,11 @@ private struct SearchResults: View {
                 ContentUnavailableView {
                     Label("没有找到结果", systemImage: "magnifyingglass")
                 } description: {
-                    Text("没有与「\(search.lastQuery ?? "")」匹配的 App。换个关键词或平台再试试；搜索结果来自账号所在地区的商店。")
+                    if let region = search.browseRegionTitle {
+                        Text("\(region) 公开目录中没有与「\(search.lastQuery ?? "")」匹配的 App。换个关键词、平台或浏览地区再试试。")
+                    } else {
+                        Text("没有与「\(search.lastQuery ?? "")」匹配的 App。换个关键词或平台再试试；搜索结果来自账号所在地区的商店。")
+                    }
                 }
             case .signedOut:
                 SignedOutView()
@@ -164,13 +227,17 @@ private struct AppResultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ArtworkView(appID: row.id, size: 48)
+            ArtworkView(appID: row.id, size: 48, app: row.isPublicCatalog ? row.app : nil)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(row.name)
                         .font(BrandFont.name)
                         .lineLimit(1)
                     ForEach(row.platformTags, id: \.self) { TagView(text: $0) }
+                    if row.isPublicCatalog {
+                        TagView(text: String(localized: "公开目录"))
+                            .help("来自 Apple 公开目录（浏览地区），与当前账号无关")
+                    }
                 }
                 if let developer = model.artwork.developers[row.id] {
                     Text(developer)
@@ -197,13 +264,11 @@ private struct AppResultRow: View {
                 .foregroundStyle(row.isFree ? .secondary : .primary)
                 .frame(minWidth: 44, alignment: .trailing)
             Button("下载最新版") {
-                let context = DownloadContext(app: row.app, platform: row.platform,
-                                              externalVersionID: nil, versionLabel: row.version)
-                Task { await model.downloads.enqueue(context) }
+                model.perform(.download(row))
             }
-            .disabled(model.account == nil)
+            .disabled(model.account == nil && !row.isPublicCatalog)
             Button("历史版本…") {
-                model.searchPath.append(row)
+                model.perform(.versions(row))
             }
         }
         .padding(.vertical, 6)

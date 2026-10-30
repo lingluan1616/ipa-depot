@@ -23,6 +23,8 @@ final class LoginViewModel {
     var appleID = ""
     /// 新账号的地区标签。
     var region: AccountRegion = .mainlandChina
+    /// 地区为「其他」时自填的两位国家代码（如 sg）。
+    var customRegionCode = ""
     /// 只绑定 SecureField，提交后立即清空；不写日志、不持久化。
     var password = ""
     var code = ""
@@ -37,19 +39,19 @@ final class LoginViewModel {
     var rollbackNote: String?
 
     @ObservationIgnored var onSuccess: ((AccountInfo) -> Void)?
-    @ObservationIgnored private let makeSession: @MainActor (AccountRegion) -> LoginSessioning
+    @ObservationIgnored private let makeSession: @MainActor (AccountRegion, String?) -> LoginSessioning
     @ObservationIgnored private var session: LoginSessioning?
     @ObservationIgnored private var userCancelled = false
     @ObservationIgnored private var awaitingVerification = false
 
-    init(mode: Mode = .signIn, makeSession: @escaping @MainActor (AccountRegion) -> LoginSessioning) {
+    init(mode: Mode = .signIn, makeSession: @escaping @MainActor (AccountRegion, String?) -> LoginSessioning) {
         self.mode = mode
         self.makeSession = makeSession
         if mode == .addAccount { step = .credentials }
     }
 
     convenience init(makeSession: @escaping @Sendable () -> LoginSessioning) {
-        self.init(mode: .signIn, makeSession: { _ in makeSession() })
+        self.init(mode: .signIn, makeSession: { _, _ in makeSession() })
     }
 
     var canSubmitCredentials: Bool {
@@ -82,7 +84,7 @@ final class LoginViewModel {
         let email = appleID.trimmingCharacters(in: .whitespacesAndNewlines)
         let secret = password
         password = ""
-        let session = makeSession(region)
+        let session = makeSession(region, region == .other ? RegionCatalog.normalizeCode(customRegionCode) : nil)
         self.session = session
 
         let (events, continuation) = AsyncStream<LoginEvent>.makeStream()

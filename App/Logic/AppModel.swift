@@ -28,6 +28,10 @@ final class AppModel {
     var searchPath: [AppRowModel] = []
     private(set) var accountState: AccountState = .checking
     var login: LoginViewModel?
+    /// 公开目录结果没有对应地区的账号时的提示（「没有 X 地区的账号」）。
+    var missingRegionPrompt: MissingRegionPrompt?
+    /// 公开目录操作被拒绝的原因（如有下载进行中，暂不能切换账号）。
+    var catalogActionError: ErrorPresentation?
     var isLoggingOut = false
     var logoutError: ErrorPresentation?
 
@@ -41,6 +45,8 @@ final class AppModel {
     @ObservationIgnored let services: AppServices
     @ObservationIgnored private var versionModels: [Int64: VersionsViewModel] = [:]
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
+    /// 等账号切换（或添加账号）完成后继续的公开目录操作。
+    @ObservationIgnored private(set) var pendingCatalogAction: PendingCatalogAction?
 
     init(services: AppServices) {
         self.services = services
@@ -53,7 +59,8 @@ final class AppModel {
         let downloads = DownloadsViewModel(queue: services.queue, store: services.queueStore,
                                            destination: { try settings.ensureDownloadDirectory() },
                                            currentAccountID: { currentAccount.id })
-        downloads.regionLabel = { [weak accounts] accountID in accounts?.region(for: accountID)?.rawValue }
+        downloads.regionLabel = { [weak accounts] accountID in accounts?.regionSnapshot(for: accountID) }
+        downloads.regionTitle = { [weak accounts] accountID in accounts?.regionTitle(for: accountID) }
         let artwork = ArtworkStore(lookup: services.lookup)
         self.settings = settings
         self.history = history
@@ -61,7 +68,8 @@ final class AppModel {
         self.accounts = accounts
         self.artwork = artwork
         var signedIn: () -> Bool = { false }
-        self.search = SearchViewModel(service: services.search, isSignedIn: { signedIn() })
+        self.search = SearchViewModel(service: services.search, catalog: services.catalog, defaults: services.defaults,
+                                      isSignedIn: { signedIn() })
         signedIn = { [weak self] in self?.account != nil }
         downloads.onRecord = { [weak history] record in history?.add(record) }
         settings.onCacheCleared = { [weak artwork] in artwork?.reset() }
@@ -82,10 +90,10 @@ final class AppModel {
     var hasCompletedFirstLogin: Bool { services.defaults.bool(forKey: Self.firstLoginKey) }
 
     /// 启动：恢复下载队列；完成过首次登录才查询账号状态（未登录不算错误），否则直接显示未登录、不碰钥匙串。
+    /// 账号对账（含升级迁移给旧记录盖章）在恢复下载队列之前完成，这样恢复进内存的任务已带上账号 id。
     func bootstrap() async {
         accounts.startObserving()
         await services.queue.setAccountSwitching(services.switcher)
-        downloads.startObserving()
         observeTermination()
         if hasCompletedFirstLogin {
             await refreshAccount()
@@ -94,6 +102,7 @@ final class AppModel {
             accounts.reload()
             accountState = .signedOut
         }
+        downloads.startObserving()
     }
 
     /// App 退出时：把队列按暂停写盘，并终止正在运行的下载子进程（`.tmp` 保留，下次续传）。
@@ -117,15 +126,17 @@ final class AppModel {
     }
     #endif
 
-    /// 查询 ipatool 当前登录的账号，并与账号表对账；0.1.0 升级上来（账号表为空）时自动建一条账号并请用户选地区。
+    /// 查询 ipatool 当前登录的账号，并与账号表对账。登录着的账号不在账号表里时自动加入（密码待补）并请用户选一次地区：
+    /// 账号表为空 = 0.1.0 升级迁移，此时还给旧下载记录与队列条目盖上该账号 id；表不为空 = 例如在终端用别的账号登录过。
     func refreshAccount() async {
         accountState = .checking
         do {
             let info = try await services.auth.info()
             let switcher = services.switcher
             if await switcher.reconcile(signedIn: info) == nil,
-               let migrated = await switcher.migrateIfNeeded(signedIn: info) {
-                accounts.regionPrompt = migrated
+               let adoption = await switcher.adoptSignedInAccount(info) {
+                if adoption.isMigration { stampLegacyRecords(accountID: adoption.record.id) }
+                accounts.regionPrompt = adoption.record
             }
             accounts.reload()
             accountState = .signedIn(info)
@@ -140,16 +151,29 @@ final class AppModel {
         }
     }
 
+    /// 升级迁移：旧 `history.json` / `queue.json` 中没有账号归属的条目统一盖上迁移账号 id（幂等），并刷新记录页。
+    private func stampLegacyRecords(accountID: UUID) {
+        let queueStore = services.queueStore ?? DownloadQueueStore(fileURL: services.paths.queueFile)
+        _ = try? LegacyAccountStamp.stamp(accountID: accountID, history: services.historyStore, queue: queueStore)
+        history.reload()
+    }
+
     // MARK: - 登录 / 登出
 
     /// 登录 / 添加账号：同一个登录窗口，登录交给账号切换器（成功后写入账号表与钥匙串）。
     /// 还没有任何账号时先显示准备页；已有账号时直接填账号密码。
-    func beginLogin() {
+    /// - Parameters:
+    ///   - region / customCode: 预选的地区（「没有 X 地区的账号」→「添加账号…」时为 X）。
+    func beginLogin(region: AccountRegion? = nil, customCode: String? = nil) {
         let switcher = services.switcher
         let mode: LoginViewModel.Mode = accounts.accounts.isEmpty ? .signIn : .addAccount
-        let model = LoginViewModel(mode: mode, makeSession: { region in
-            SwitcherLoginSession(switcher: switcher, region: region)
+        let model = LoginViewModel(mode: mode, makeSession: { region, customCode in
+            SwitcherLoginSession(switcher: switcher, region: region, customRegionCode: customCode)
         })
+        if let region {
+            model.region = region
+            model.customRegionCode = region == .other ? (customCode ?? "") : ""
+        }
         model.onSuccess = { [weak self] info in
             self?.services.defaults.set(true, forKey: Self.firstLoginKey)
             self?.accountState = .signedIn(info)
@@ -161,6 +185,7 @@ final class AppModel {
     func dismissLogin() {
         login?.cancel()
         login = nil
+        if accounts.switchProgress == nil { pendingCatalogAction = nil }
     }
 
     /// 登出当前账号：保存其会话后 revoke；账号保留在列表里，之后可一键切回。
@@ -216,12 +241,18 @@ final class AppModel {
         services.defaults.set(true, forKey: Self.firstLoginKey)
         accountState = .signedIn(record.accountInfo)
         if previous != nil {
-            resetForAccountChange(label: record.regionLabel.title)
+            resetForAccountChange(label: record.regionTitle)
+        }
+        if let pending = pendingCatalogAction {
+            pendingCatalogAction = nil
+            if record.matches(countryCode: pending.countryCode) { run(pending.action) }
         }
     }
 
     /// 切换失败（切换器已回滚）：按回滚结果更新账号状态。
     func accountSwitchFailed(_ progress: AccountSwitchProgress, error: AccountSwitchError) {
+        // 添加账号失败时登录窗口仍开着，用户可能重试，保留待继续的操作；切换失败则放弃。
+        if progress.kind == .switchTo { pendingCatalogAction = nil }
         switch error.rollback {
         case .restored(let previous):
             accountState = .signedIn(previous.accountInfo)
@@ -252,11 +283,90 @@ final class AppModel {
         versionModels.values.forEach { $0.accountChanged(label: label) }
     }
 
-    /// 历史版本页的视图模型（按 App 复用，返回再进入时保留已加载的版本号）。
+    /// 历史版本页的视图模型（按 App 复用，返回再进入时保留已加载的版本号；切换账号后已清空的重新建）。
     func versionsModel(for row: AppRowModel) -> VersionsViewModel {
-        if let existing = versionModels[row.id], existing.platform == row.platform { return existing }
+        if let existing = versionModels[row.id], existing.platform == row.platform {
+            if case .accountChanged = existing.phase {} else { return existing }
+        }
         let model = VersionsViewModel(app: row.app, platform: row.platform, service: services.versions)
         versionModels[row.id] = model
         return model
     }
+
+    // MARK: - 浏览地区（公开目录）
+
+    /// 搜索结果行上的「历史版本…」「下载最新版」。公开目录结果先找与浏览地区一致的账号：
+    /// 当前账号匹配 → 直接继续；其他账号匹配 → 自动切换（遮罩）后继续；没有 → 提示「没有 X 地区的账号」。
+    func perform(_ action: CatalogAction) {
+        guard let code = action.row.app.catalogCountry else {
+            run(action)
+            return
+        }
+        switch accounts.book.match(countryCode: code) {
+        case .current:
+            run(action)
+        case .other(let record):
+            if canSwitchAccounts {
+                pendingCatalogAction = PendingCatalogAction(action: action, countryCode: code)
+                Task { await accounts.switchTo(record) }
+            } else if case .download(let row) = action {
+                // 有下载进行中：任务直接绑定到该账号，轮到它时队列会先自动切换
+                Task { await downloads.enqueue(Self.latestContext(row), accountID: record.id) }
+            } else {
+                catalogActionError = ErrorPresentation(
+                    message: String(localized: "有下载正在进行，暂时不能切换到 \(record.regionTitle) 账号。请等下载完成后再试。"))
+            }
+        case .none:
+            missingRegionPrompt = MissingRegionPrompt(countryCode: code, action: action)
+        }
+    }
+
+    /// 「没有 X 地区的账号」→「添加账号…」：登录窗口预选该地区；添加成功后继续原来的操作。
+    func addAccount(for prompt: MissingRegionPrompt) {
+        missingRegionPrompt = nil
+        let region = RegionCatalog.region(forCode: prompt.countryCode) ?? .other
+        pendingCatalogAction = PendingCatalogAction(action: prompt.action, countryCode: prompt.countryCode)
+        beginLogin(region: region, customCode: region == .other ? prompt.countryCode : nil)
+    }
+
+    private func run(_ action: CatalogAction) {
+        switch action {
+        case .versions(let row):
+            page = .search
+            if searchPath.last != row { searchPath.append(row) }
+        case .download(let row):
+            Task { await downloads.enqueue(Self.latestContext(row)) }
+        }
+    }
+
+    static func latestContext(_ row: AppRowModel) -> DownloadContext {
+        DownloadContext(app: row.app, platform: row.platform, externalVersionID: nil, versionLabel: row.version)
+    }
+}
+
+/// 搜索结果行上需要账号的操作。
+enum CatalogAction: Equatable {
+    case versions(AppRowModel)
+    case download(AppRowModel)
+
+    var row: AppRowModel {
+        switch self {
+        case .versions(let row), .download(let row): return row
+        }
+    }
+}
+
+/// 等账号切换（或添加）完成后继续的操作：新账号地区与 `countryCode` 一致才继续。
+struct PendingCatalogAction: Equatable {
+    let action: CatalogAction
+    let countryCode: String
+}
+
+/// 「没有 X 地区的账号」。
+struct MissingRegionPrompt: Identifiable, Equatable {
+    let id = UUID()
+    let countryCode: String
+    let action: CatalogAction
+
+    var regionTitle: String { AccountRegion.title(forCode: countryCode) }
 }

@@ -13,8 +13,11 @@ struct DownloadContext: Equatable, Hashable {
     let externalVersionID: String?
     /// 用于文件名与显示的版本号（未知时用外部版本 ID）。
     let versionLabel: String
+    /// 从公开目录（浏览地区）发起时为所浏览的国家代码；队列里据此总是显示地区标签。
+    let catalogCountry: String?
 
     init(app: AppSummary, platform: SearchPlatform, externalVersionID: String?, versionLabel: String?) {
+        self.catalogCountry = app.catalogCountry
         self.appID = app.id
         self.name = app.name.isEmpty ? app.bundleID : app.name
         self.bundleID = app.bundleID
@@ -27,6 +30,7 @@ struct DownloadContext: Equatable, Hashable {
 
     /// 从上次保存的队列恢复。
     init(persisted entry: PersistedDownload) {
+        self.catalogCountry = entry.catalogCountry
         self.appID = entry.appID
         self.name = entry.name
         self.bundleID = entry.bundleID
@@ -58,6 +62,9 @@ struct DownloadRow: Identifiable, Equatable {
     var lastFailure: IpatoolError? = nil
     /// 任务所属账号的地区名（多账号时显示；未知为 nil）。
     var regionTitle: String? = nil
+
+    /// 来自公开目录（浏览地区）的任务：队列里总是显示地区标签。
+    var isPublicCatalog: Bool { context.catalogCountry != nil }
 
     var fraction: Double? {
         if case .completed = status { return 1 }
@@ -158,8 +165,10 @@ final class DownloadsViewModel {
 
     /// 下载完成时回调（写入记录）。
     @ObservationIgnored var onRecord: ((DownloadRecord) -> Void)?
-    /// 账号 id → 地区标签原始值（`AccountRegion.rawValue`）；旧任务（无账号 id）返回当前账号的。
+    /// 账号 id → 写进下载记录的地区快照（`AccountRegion.rawValue`，「其他」为自填代码）；旧任务（无账号 id）返回当前账号的。
     @ObservationIgnored var regionLabel: ((UUID?) -> String?)?
+    /// 账号 id → 界面显示的地区名；未设置时由 `regionLabel` 推出。
+    @ObservationIgnored var regionTitle: ((UUID?) -> String?)?
 
     @ObservationIgnored private let queue: DownloadQueueing
     @ObservationIgnored private let store: DownloadQueueStore?
@@ -190,8 +199,15 @@ final class DownloadsViewModel {
             guard let context = contexts[item.id] else { return nil }
             return DownloadRow(id: item.id, context: context, status: item.status, progress: item.progress,
                                lastLog: item.lastLog, output: item.request.output, lastFailure: item.lastFailure,
-                               regionTitle: regionLabel?(item.request.accountID).flatMap(AccountRegion.init(rawValue:))?.title)
+                               regionTitle: title(for: item.request.accountID, catalogCountry: context.catalogCountry))
         }
+    }
+
+    /// 任务的地区名：账号的地区；账号未知时，公开目录任务用所浏览的地区。
+    private func title(for accountID: UUID?, catalogCountry: String?) -> String? {
+        if let regionTitle, let title = regionTitle(accountID) { return title }
+        if regionTitle == nil, let raw = regionLabel?(accountID) { return AccountRegion.title(forStored: raw) }
+        return catalogCountry.map(AccountRegion.title(forCode:))
     }
 
     var activeRows: [DownloadRow] { rows.filter { !$0.status.isFinished } }
@@ -228,8 +244,9 @@ final class DownloadsViewModel {
     }
 
     /// 入队。目标文件：下载目录 + `<name>_<version>.ipa`（非法字符替换、同名加序号）。
+    /// - Parameter accountID: 任务所属账号；nil = 当前账号（公开目录的任务可直接绑定到匹配地区的账号，由队列先切换）。
     @discardableResult
-    func enqueue(_ context: DownloadContext, purchase: Bool = false) async -> UUID? {
+    func enqueue(_ context: DownloadContext, purchase: Bool = false, accountID: UUID? = nil) async -> UUID? {
         let directory: URL
         do {
             directory = try destination()
@@ -242,7 +259,7 @@ final class DownloadsViewModel {
                                                  reserved: reserved)
         let request = DownloadRequest(appID: context.appID, externalVersionID: context.externalVersionID,
                                       purchase: purchase, output: output, platform: context.platform.downloadPlatform,
-                                      accountID: currentAccountID())
+                                      accountID: accountID ?? currentAccountID())
         let id = UUID()
         contexts[id] = context
         outputs[id] = output
@@ -297,7 +314,8 @@ final class DownloadsViewModel {
                 purchase: item.request.purchase, outputPath: item.request.output.path,
                 platform: item.request.platform, displayPlatform: context.platform.rawValue,
                 isFree: context.isFree, totalBytes: item.progress?.total, addedAt: item.addedAt,
-                failure: item.lastFailure.map(PersistedFailure.init), accountID: item.request.accountID)
+                failure: item.lastFailure.map(PersistedFailure.init), accountID: item.request.accountID,
+                catalogCountry: context.catalogCountry)
         }
     }
 

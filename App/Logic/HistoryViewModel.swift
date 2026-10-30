@@ -18,6 +18,11 @@ final class HistoryViewModel {
         records = store.load().sorted { $0.completedAt > $1.completedAt }
     }
 
+    /// 重新读取 `history.json`（升级迁移盖章后调用）。
+    func reload() {
+        records = store.load().sorted { $0.completedAt > $1.completedAt }
+    }
+
     func exists(_ record: DownloadRecord) -> Bool { fileExists(record.path) }
 
     func add(_ record: DownloadRecord) {

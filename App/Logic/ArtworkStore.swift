@@ -28,6 +28,14 @@ final class ArtworkStore {
         }
     }
 
+    /// 公开目录结果自带开发者名与图标地址：先填上开发者，并把图标地址交给 lookup（之后照常 `request`）。
+    func prime(_ app: AppSummary) async {
+        guard app.isPublicCatalog, !requested.contains(app.id) else { return }
+        if let seller = app.sellerName, !seller.isEmpty, developers[app.id] == nil { developers[app.id] = seller }
+        await lookup.prime(AppLookupInfo(appID: app.id, artworkURL: app.artworkURL, artistName: app.sellerName,
+                                         country: app.catalogCountry ?? ""))
+    }
+
     /// 清理缓存后调用：丢掉内存里的引用，下次显示时重新请求。
     func reset() {
         images = [:]

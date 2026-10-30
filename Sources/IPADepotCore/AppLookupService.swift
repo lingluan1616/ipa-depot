@@ -37,6 +37,14 @@ public actor AppLookupService {
         URL(string: "https://itunes.apple.com/lookup?id=\(appID)&country=\(country)")!
     }
 
+    /// 公开目录结果已带图标地址与开发者名：直接放进内存缓存，省掉一次 lookup（已有缓存时不覆盖）。
+    public func prime(_ info: AppLookupInfo) {
+        guard infoCache[info.appID] == nil else { return }
+        if FileManager.default.fileExists(atPath: infoFileURL(appID: info.appID).path) { return }
+        infoCache[info.appID] = info
+        failed.remove(info.appID)
+    }
+
     public func infoFileURL(appID: Int64) -> URL { directory.appendingPathComponent("\(appID).json") }
     public func imageFileURL(appID: Int64) -> URL { directory.appendingPathComponent("\(appID).img") }
 

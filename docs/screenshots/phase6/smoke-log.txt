@@ -1,0 +1,13 @@
+[23:55:38] brand font loaded: true
+[23:55:38] mode=p6Browse hasCompletedFirstLogin=false
+[23:55:42] after jp login: accounts=[jp:jp@example.test*]
+[23:55:51] browse us → phase=results rows=24 public=24 first=["MD Vinyl Music App(1606306441)", "Discogs(1036449551)", "Mint: Vinyl Record Scanner(6760787662)"]
+[23:55:57] missing prompt: us 美国
+[23:55:58] add sheet region=us mode=addAccount
+[23:56:04] after add: active=us@example.test path=["MD Vinyl Music App"] accounts=[jp:jp@example.test, us:us@example.test*]
+[23:56:06] back to jp: active=jp@example.test rows still=24
+[23:56:07] overlay: 正在登录 美国 账号
+[23:56:10] after auto-switch: active=us@example.test path=["MD Vinyl Music App"]
+[23:56:12] queue: ["MD Vinyl Music App region=美国 public=true 正在下载"]
+[23:56:13] final accounts=[jp:jp@example.test, us:us@example.test*]
+[23:56:13] done

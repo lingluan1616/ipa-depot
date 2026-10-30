@@ -1,6 +1,7 @@
 import Foundation
 
 /// 账号的商店地区标签（用户添加账号时选择，可修改）。只是标签：实际地区由 Apple ID 本身决定。
+/// 标签与国家代码、旗帜、排序的对应见 `RegionCatalog`。
 public enum AccountRegion: String, Sendable, Codable, CaseIterable, Identifiable {
     case mainlandChina = "cn"
     case hongKong = "hk"
@@ -12,11 +13,14 @@ public enum AccountRegion: String, Sendable, Codable, CaseIterable, Identifiable
 
     public var id: String { rawValue }
 
-    /// 未知取值（未来版本新增的地区）按「其他」处理，不让整份账号表解析失败。
+    /// 按 `RegionCatalog` 解析：原始值（cn）、标签文字（日本 / Japan）都认；未知取值按「其他」处理，不让整份账号表解析失败。
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
-        self = AccountRegion(rawValue: raw) ?? .other
+        self = RegionCatalog.resolve(storedValue: raw).region
     }
+
+    /// 目录里的条目（标签、国家代码、旗帜、排序）。
+    public var catalogEntry: RegionEntry { RegionCatalog.entry(for: self) }
 }
 
 /// 钥匙串里是否保存了该账号的密码。
@@ -40,24 +44,28 @@ public struct AccountRecord: Sendable, Codable, Equatable, Identifiable, Hashabl
     /// ipatool 返回的姓名（可能为空）。
     public var displayName: String
     public var regionLabel: AccountRegion
+    /// 地区为「其他」时用户自填的两位国家代码（小写；其他地区为 nil）。
+    public var customRegionCode: String?
     /// 预留：账号的商店代码（ipatool `auth info` 不输出，目前为 nil）。
     public var storefrontHint: String?
     public var lastLoginAt: Date?
     public var passwordState: PasswordState
 
     public init(id: UUID = UUID(), email: String, displayName: String = "", regionLabel: AccountRegion,
+                customRegionCode: String? = nil,
                 storefrontHint: String? = nil, lastLoginAt: Date? = nil, passwordState: PasswordState) {
         self.id = id
         self.email = email
         self.displayName = displayName
         self.regionLabel = regionLabel
+        self.customRegionCode = regionLabel == .other ? customRegionCode.flatMap(RegionCatalog.normalizeCode) : nil
         self.storefrontHint = storefrontHint
         self.lastLoginAt = lastLoginAt
         self.passwordState = passwordState
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, email, displayName, regionLabel, storefrontHint, lastLoginAt, passwordState
+        case id, email, displayName, regionLabel, customRegionCode, storefrontHint, lastLoginAt, passwordState
     }
 
     /// 容错解码：缺少非关键字段时给默认值。
@@ -66,7 +74,11 @@ public struct AccountRecord: Sendable, Codable, Equatable, Identifiable, Hashabl
         id = try c.decode(UUID.self, forKey: .id)
         email = try c.decode(String.self, forKey: .email)
         displayName = (try? c.decode(String.self, forKey: .displayName)) ?? ""
-        regionLabel = (try? c.decode(AccountRegion.self, forKey: .regionLabel)) ?? .other
+        // 地区：按 RegionCatalog 兼容旧值（原始值 / 标签文字 / 两位代码）
+        let resolved = (try? c.decode(String.self, forKey: .regionLabel)).map(RegionCatalog.resolve(storedValue:))
+        regionLabel = resolved?.region ?? .other
+        let storedCustom = (try? c.decodeIfPresent(String.self, forKey: .customRegionCode))?.flatMap(RegionCatalog.normalizeCode)
+        customRegionCode = regionLabel == .other ? (storedCustom ?? resolved?.customCode) : nil
         storefrontHint = try? c.decodeIfPresent(String.self, forKey: .storefrontHint)
         lastLoginAt = try? c.decodeIfPresent(Date.self, forKey: .lastLoginAt)
         passwordState = (try? c.decode(PasswordState.self, forKey: .passwordState)) ?? .missing

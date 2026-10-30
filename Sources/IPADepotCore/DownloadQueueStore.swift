@@ -27,11 +27,13 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
     public var failure: PersistedFailure?
     /// 任务所属账号；0.1.0 的旧文件没有此字段（nil），视为当前账号。
     public var accountID: UUID?
+    /// 从公开目录（浏览地区）发起的任务：所浏览的国家代码；其他任务为 nil。旧文件没有此字段。
+    public var catalogCountry: String?
 
     public init(id: UUID, appID: Int64, name: String, bundleID: String, versionLabel: String,
                 externalVersionID: String?, purchase: Bool, outputPath: String, platform: String?,
                 displayPlatform: String, isFree: Bool, totalBytes: Int64?, addedAt: Date,
-                failure: PersistedFailure? = nil, accountID: UUID? = nil) {
+                failure: PersistedFailure? = nil, accountID: UUID? = nil, catalogCountry: String? = nil) {
         self.id = id
         self.appID = appID
         self.name = name
@@ -47,6 +49,7 @@ public struct PersistedDownload: Sendable, Codable, Equatable, Identifiable {
         self.addedAt = addedAt
         self.failure = failure
         self.accountID = accountID
+        self.catalogCountry = catalogCountry
     }
 
     /// 重新下载用的请求（与当初入队时同参数）。
