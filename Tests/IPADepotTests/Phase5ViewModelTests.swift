@@ -155,6 +155,20 @@ final class Phase5ViewModelTests: VMTestCase {
         XCTAssertFalse(model.canSwitchAccounts, "有下载进行中时不能手动切换")
     }
 
+    func testSwitchStartCancelsInFlightVersionRequests() async throws {
+        let (model, _, us) = try await twoAccountModel()
+        model.search.query = "音乐"
+        await model.search.search()
+        let versions = model.versionsModel(for: model.search.rows[0])
+        await versions.load()
+        versions.rowAppeared("2")
+        XCTAssertNotNil(versions.pumpTask)
+        var cancelled = false
+        model.accounts.onSwitchStarted = { cancelled = true; model.cancelAccountScopedRequests() }
+        await model.accounts.switchTo(us)
+        XCTAssertTrue(cancelled, "切换开始时通知界面停掉请求")
+    }
+
     func testRegionTitlesAndStatusText() {
         XCTAssertEqual(AccountRegion.allCases.map(\.title), ["中国大陆", "香港", "台湾", "日本", "美国", "韩国", "其他"])
         let target = AccountRecord(email: "jp@example.test", regionLabel: .japan, passwordState: .saved)

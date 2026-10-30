@@ -70,6 +70,8 @@ final class AccountsViewModel {
     @ObservationIgnored var onFailed: ((AccountSwitchProgress, AccountSwitchError) -> Void)?
     /// 添加账号时的进度（转给登录窗口显示）。
     @ObservationIgnored var onAddProgress: ((AccountSwitchProgress) -> Void)?
+    /// 一次切换开始（第一条进度）：界面据此停掉进行中的搜索 / 历史版本请求，避免与 revoke / 登录并发。
+    @ObservationIgnored var onSwitchStarted: (() -> Void)?
 
     @ObservationIgnored let switcher: AccountSwitcher
     @ObservationIgnored private var observeTask: Task<Void, Never>?
@@ -121,6 +123,7 @@ final class AccountsViewModel {
     }
 
     func apply(_ progress: AccountSwitchProgress) {
+        if switchProgress == nil, progress.phase != .done, progress.phase != .failed { onSwitchStarted?() }
         switch progress.phase {
         case .done:
             switchProgress = nil

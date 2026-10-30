@@ -126,6 +126,13 @@ final class SearchViewModel {
         phase = label.map { .accountChanged($0) } ?? .idle
     }
 
+    /// 取消进行中的搜索（保留已有结果与状态）。
+    func cancelPending() {
+        currentTask?.cancel()
+        currentTask = nil
+        if phase == .loading { phase = .idle }
+    }
+
     /// 登出后清空。
     func reset() {
         currentTask?.cancel()

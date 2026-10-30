@@ -68,6 +68,7 @@ final class AppModel {
         accounts.onSwitched = { [weak self] record, previous, _ in self?.accountSwitched(to: record, from: previous) }
         accounts.onFailed = { [weak self] progress, error in self?.accountSwitchFailed(progress, error: error) }
         accounts.onAddProgress = { [weak self] progress in self?.login?.applySwitchProgress(progress) }
+        accounts.onSwitchStarted = { [weak self] in self?.cancelAccountScopedRequests() }
     }
 
     var account: AccountInfo? {
@@ -236,6 +237,12 @@ final class AppModel {
         case .notNeeded:
             break
         }
+    }
+
+    /// 切换开始时停掉进行中的搜索与历史版本请求（ipatool 子进程随任务取消而终止）。
+    func cancelAccountScopedRequests() {
+        search.cancelPending()
+        versionModels.values.forEach { $0.cancel() }
     }
 
     /// `label` 为新账号的地区名；nil = 现在未登录（回到搜索首页）。
