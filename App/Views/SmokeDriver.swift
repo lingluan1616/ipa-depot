@@ -28,6 +28,15 @@ enum SmokeDriver {
             NSApp.terminate(nil)
             return
         }
+        await captureLaunchAndLogin(model: model, dir: dir, note: note)
+        await captureSearchAndVersions(model: model, dir: dir, note: note)
+        await capturePages(model: model, dir: dir, note: note)
+        note("done")
+        NSApp.terminate(nil)
+    }
+
+    /// 默认冒烟第一段：账号状态、未登录界面、登录准备页（只打开，不登录）。
+    private static func captureLaunchAndLogin(model: AppModel, dir: URL, note: (String) -> Void) async {
         await wait(timeout: 60) { model.accountState != .checking }
         let signedIn = model.account != nil
         note("account: \(signedIn ? "signedIn（姓名与邮箱不记录）" : String(describing: model.accountState))")
@@ -49,7 +58,10 @@ enum SmokeDriver {
         capture("03-login-credentials", dir: dir)
         model.dismissLogin()
         await sleep(0.8)
+    }
 
+    /// 默认冒烟第二段：搜索「音乐」与历史版本页。
+    private static func captureSearchAndVersions(model: AppModel, dir: URL, note: (String) -> Void) async {
         // 搜索「音乐」
         model.page = .search
         model.search.query = "音乐"
@@ -79,7 +91,10 @@ enum SmokeDriver {
         await sleep(1.0)
         note("versions loaded=\(versions.loadedCount) batches=\(versions.batchLog.count) first=\(versions.rows.prefix(3).map { "\($0.id)=\($0.metadata?.displayVersion ?? "-")" })")
         capture("05-versions", dir: dir)
+    }
 
+    /// 默认冒烟第三段：下载 / 记录 / 设置页。
+    private static func capturePages(model: AppModel, dir: URL, note: (String) -> Void) async {
         model.page = .downloads
         await sleep(1.0)
         capture("06-downloads", dir: dir)
@@ -91,8 +106,6 @@ enum SmokeDriver {
         await sleep(1.0)
         capture("08-settings", dir: dir)
         note("ipatool version=\(model.settings.ipatoolVersion ?? model.settings.ipatoolVersionError ?? "-")")
-        note("done")
-        NSApp.terminate(nil)
     }
 
     /// 阶段三冒烟（`-IPADepotSmokeMode <mode>`）：

@@ -38,6 +38,21 @@ struct AccountMenuItems: View {
     let onSignOut: () -> Void
 
     var body: some View {
+        otherAccountsSection
+        Divider()
+        Button("添加账号…") { model.beginLogin() }
+            .disabled(model.accounts.isSwitching)
+        Button("管理账号…") { model.accounts.showingManager = true }
+        if includeSignOut {
+            Divider()
+            Button("登出当前账号…", action: onSignOut)
+                .disabled(model.isLoggingOut || model.accounts.isSwitching)
+        }
+    }
+
+    /// 其他账号（点击切换）；正在下载时附一行说明。没有其他账号时为空。
+    @ViewBuilder
+    private var otherAccountsSection: some View {
         let accounts = model.accounts
         let others = model.account == nil ? accounts.accounts : accounts.others
         if !others.isEmpty {
@@ -54,15 +69,6 @@ struct AccountMenuItems: View {
             if model.downloads.hasActiveDownload {
                 Text("有下载正在进行，暂停后才能切换账号")
             }
-        }
-        Divider()
-        Button("添加账号…") { model.beginLogin() }
-            .disabled(model.accounts.isSwitching)
-        Button("管理账号…") { model.accounts.showingManager = true }
-        if includeSignOut {
-            Divider()
-            Button("登出当前账号…", action: onSignOut)
-                .disabled(model.isLoggingOut || model.accounts.isSwitching)
         }
     }
 }

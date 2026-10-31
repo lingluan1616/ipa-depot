@@ -28,21 +28,7 @@ struct VersionsView: View {
                 if let developer = model.artwork.developers[versions.app.id] {
                     Text(developer).font(.callout).foregroundStyle(.secondary)
                 }
-                HStack(spacing: 6) {
-                    if !versions.app.bundleID.isEmpty {
-                        Text(verbatim: versions.app.bundleID)
-                        Text(verbatim: "·")
-                    }
-                    Text(verbatim: "ID \(versions.app.id)")
-                    if !versions.app.version.isEmpty {
-                        Text(verbatim: "·")
-                        Text("当前版本 \(versions.app.version)")
-                    }
-                    Text(verbatim: "·")
-                    Text(Format.price(versions.app.price))
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                appMetadata
             }
             Spacer()
             DownloadPhaseButton(title: "下载最新版", systemImage: "arrow.down.circle",
@@ -55,6 +41,25 @@ struct VersionsView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    /// 标题下的一行信息：Bundle ID · ID · 当前版本 · 价格。
+    private var appMetadata: some View {
+        HStack(spacing: 6) {
+            if !versions.app.bundleID.isEmpty {
+                Text(verbatim: versions.app.bundleID)
+                Text(verbatim: "·")
+            }
+            Text(verbatim: "ID \(versions.app.id)")
+            if !versions.app.version.isEmpty {
+                Text(verbatim: "·")
+                Text("当前版本 \(versions.app.version)")
+            }
+            Text(verbatim: "·")
+            Text(Format.price(versions.app.price))
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder

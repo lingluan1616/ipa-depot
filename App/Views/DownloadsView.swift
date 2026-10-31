@@ -8,44 +8,11 @@ struct DownloadsView: View {
         let downloads = model.downloads
         Group {
             if downloads.rows.isEmpty {
-                ContentUnavailableView {
-                    Label("没有下载任务", systemImage: "arrow.down.circle")
-                } description: {
-                    Text("在搜索页点「下载最新版」，或在历史版本里选择一个版本下载。任务按加入顺序进行，同时下载数可在设置中调整（1～3 个）。")
-                }
+                emptyState
             } else {
                 List {
-                    if !downloads.activeRows.isEmpty {
-                        Section {
-                            ForEach(downloads.activeRows) { row in
-                                DownloadRowView(row: row)
-                            }
-                        } header: {
-                            HStack {
-                                Text("进行中")
-                                Spacer()
-                                Text("正在下载 \(downloads.runningCount) / 同时 \(model.settings.maxConcurrentDownloads) 个")
-                                    .font(.caption)
-                                    .monospacedDigit()
-                                    .help("同时下载数可在设置中调整")
-                            }
-                        }
-                    }
-                    if !downloads.completedRows.isEmpty {
-                        Section {
-                            ForEach(downloads.completedRows) { row in
-                                DownloadRowView(row: row)
-                            }
-                        } header: {
-                            HStack {
-                                Text("已完成")
-                                Spacer()
-                                Button("清除已完成") { downloads.clearCompleted() }
-                                    .buttonStyle(.link)
-                                    .font(.caption)
-                            }
-                        }
-                    }
+                    activeSection
+                    completedSection
                 }
                 .listStyle(.inset)
             }
@@ -60,6 +27,58 @@ struct DownloadsView: View {
                     Label("打开下载文件夹", systemImage: "folder")
                 }
                 .help("打开下载文件夹")
+            }
+        }
+    }
+
+    /// 没有任务时的占位。
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("没有下载任务", systemImage: "arrow.down.circle")
+        } description: {
+            Text("在搜索页点「下载最新版」，或在历史版本里选择一个版本下载。任务按加入顺序进行，同时下载数可在设置中调整（1～3 个）。")
+        }
+    }
+
+    /// 「进行中」分区（没有进行中的任务时为空）。
+    @ViewBuilder
+    private var activeSection: some View {
+        let downloads = model.downloads
+        if !downloads.activeRows.isEmpty {
+            Section {
+                ForEach(downloads.activeRows) { row in
+                    DownloadRowView(row: row)
+                }
+            } header: {
+                HStack {
+                    Text("进行中")
+                    Spacer()
+                    Text("正在下载 \(downloads.runningCount) / 同时 \(model.settings.maxConcurrentDownloads) 个")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .help("同时下载数可在设置中调整")
+                }
+            }
+        }
+    }
+
+    /// 「已完成」分区（没有已完成的任务时为空）。
+    @ViewBuilder
+    private var completedSection: some View {
+        let downloads = model.downloads
+        if !downloads.completedRows.isEmpty {
+            Section {
+                ForEach(downloads.completedRows) { row in
+                    DownloadRowView(row: row)
+                }
+            } header: {
+                HStack {
+                    Text("已完成")
+                    Spacer()
+                    Button("清除已完成") { downloads.clearCompleted() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                }
             }
         }
     }
